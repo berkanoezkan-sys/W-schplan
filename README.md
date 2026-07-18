@@ -81,8 +81,40 @@ npm run dev:mobile
 Set `EXPO_PUBLIC_API_URL` if testing on a physical device (use your machine's LAN IP):
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.10:3001 npm run dev:mobile
+EXPO_PUBLIC_API_URL=http://192.168.1.21:3001 npm run dev:mobile
 ```
+
+### Connecting on your phone or Mac
+
+Recent **Expo Go for Mac** builds no longer show “Enter URL manually”. Use one of these instead:
+
+| Where you test | Easiest option |
+|----------------|----------------|
+| **Mac browser** | Open [http://localhost:8081](http://localhost:8081), or press `w` in the Expo terminal |
+| **Expo Go on Mac** (same computer) | In Terminal: `open "exp://localhost:8081"` (dev server must use `--localhost`; see below) |
+| **iPhone / Android** | Scan the QR code shown when you run `npx expo start` (press `e` if you don't see it) |
+| **iOS Simulator** | Press `i` in the Expo terminal (requires Xcode) |
+
+**Start the dev server** (API must already be running on port 3001):
+
+```bash
+# Phone on same Wi‑Fi — replace 192.168.1.21 with your Mac's LAN IP (System Settings → Wi‑Fi → Details)
+EXPO_PUBLIC_API_URL=http://192.168.1.21:3001 npx expo start --host lan
+
+# Expo Go on the same Mac — use localhost, not the LAN IP
+EXPO_PUBLIC_API_URL=http://192.168.1.21:3001 npx expo start --localhost
+open "exp://localhost:8081"
+```
+
+**If the QR code or connection fails** (public Wi‑Fi, VPN, wrong IP shown):
+
+```bash
+EXPO_PUBLIC_API_URL=http://192.168.1.21:3001 npx expo start --tunnel
+```
+
+Or paste `exp://192.168.1.21:8081` into **Safari** on your phone/Mac — Safari will offer to open it in Expo Go.
+
+Find your Mac's LAN IP: `ipconfig getifaddr en0` (Wi‑Fi) or check System Settings → Network.
 
 ## Demo accounts
 
