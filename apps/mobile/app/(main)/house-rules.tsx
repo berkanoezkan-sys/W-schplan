@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBuilding } from '@/lib/building';
-import { Body, Button, Caption, Card, Heading, LoadingState } from '@/components/ui';
-import { colors, spacing } from '@/lib/theme';
+import { Body, Button, Caption, Card, LoadingState, PageShell } from '@/components/ui';
 import { t } from '@/lib/i18n';
 
 export default function HouseRulesScreen() {
@@ -24,8 +22,7 @@ export default function HouseRulesScreen() {
   if (isLoading) return <LoadingState />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Heading>{t('houseRules.title')}</Heading>
+    <PageShell>
       {data &&
         Object.entries(data).map(([key, value]) => (
           <Card key={key}>
@@ -34,11 +31,6 @@ export default function HouseRulesScreen() {
           </Card>
         ))}
       <Button label={t('common.back')} variant="secondary" onPress={() => router.back()} />
-    </ScrollView>
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md },
-});

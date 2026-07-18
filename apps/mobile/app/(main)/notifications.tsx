@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ScrollView, Pressable, Text, StyleSheet } from 'react-native';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Caption, Card, EmptyState, Heading, LoadingState } from '@/components/ui';
-import { colors, spacing, typography } from '@/lib/theme';
+import { EmptyState, ListRow, LoadingState, PageShell } from '@/components/ui';
 import { t } from '@/lib/i18n';
 
 type Notification = {
@@ -34,32 +32,20 @@ export default function NotificationsScreen() {
   if (isLoading) return <LoadingState />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Heading>{t('notifications.title')}</Heading>
+    <PageShell>
       {!data?.length ? (
         <EmptyState message={t('notifications.empty')} />
       ) : (
         data.map((n) => (
-          <Pressable
+          <ListRow
             key={n.id}
-            accessibilityRole="button"
+            title={n.title}
+            subtitle={`${n.body} · ${new Date(n.createdAt).toLocaleString('de-CH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
+            unread={!n.read}
             onPress={() => !n.read && markRead.mutate(n.id)}
-          >
-            <Card>
-              <Text style={[styles.title, !n.read && styles.unread]}>{n.title}</Text>
-              <Caption>{n.body}</Caption>
-              <Caption>{new Date(n.createdAt).toLocaleString('de-CH')}</Caption>
-            </Card>
-          </Pressable>
+          />
         ))
       )}
-    </ScrollView>
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md },
-  title: { ...typography.body, fontWeight: '600' },
-  unread: { color: colors.primary },
-});

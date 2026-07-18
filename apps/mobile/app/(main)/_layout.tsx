@@ -17,11 +17,17 @@ export default function MainLayout() {
       <Tabs
         screenOptions={{
           headerShown: true,
-          headerStyle: { backgroundColor: colors.background },
+          headerStyle: { backgroundColor: colors.surface },
+          headerShadowVisible: false,
           headerTintColor: colors.primary,
-          tabBarActiveTintColor: colors.primary,
+          headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+          tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textMuted,
-          tabBarStyle: { minHeight: 56 },
+          tabBarStyle: {
+            minHeight: 56,
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+          },
         }}
       >
         <Tabs.Screen
@@ -36,7 +42,7 @@ export default function MainLayout() {
         <Tabs.Screen
           name="schedule"
           options={{
-            title: t('schedule.today'),
+            title: t('schedule.title'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="calendar-outline" size={size} color={color} />
             ),
@@ -60,14 +66,14 @@ export default function MainLayout() {
             ),
           }}
         />
-        <Tabs.Screen name="machine/[id]" options={{ href: null, title: 'Machine' }} />
-        <Tabs.Screen name="reserve" options={{ href: null, title: 'Reserve' }} />
-        <Tabs.Screen name="timer" options={{ href: null, title: 'Timer' }} />
-        <Tabs.Screen name="checklist" options={{ href: null, title: 'Checklist' }} />
-        <Tabs.Screen name="defect" options={{ href: null, title: 'Defect' }} />
-        <Tabs.Screen name="defects" options={{ href: null, title: 'Defects' }} />
-        <Tabs.Screen name="house-rules" options={{ href: null, title: 'House rules' }} />
-        <Tabs.Screen name="scan" options={{ href: null, title: 'Scan' }} />
+        <Tabs.Screen name="machine/[id]" options={{ href: null, title: t('machine.title') }} />
+        <Tabs.Screen name="reserve" options={{ href: null, title: t('reserve.title') }} />
+        <Tabs.Screen name="timer" options={{ href: null, title: t('timer.title') }} />
+        <Tabs.Screen name="checklist" options={{ href: null, title: t('checklist.title') }} />
+        <Tabs.Screen name="defect" options={{ href: null, title: t('defect.title') }} />
+        <Tabs.Screen name="defects" options={{ href: null, title: t('defect.listTitle') }} />
+        <Tabs.Screen name="house-rules" options={{ href: null, title: t('houseRules.title') }} />
+        <Tabs.Screen name="scan" options={{ href: null, title: t('scan.title') }} />
       </Tabs>
     </BuildingProvider>
   );

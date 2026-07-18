@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#E8F4F8"
+      "backgroundColor": "#F8FAFB"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8F4F8"
+        "backgroundColor": "#F8FAFB"
       },
       "package": "ch.woeschplan.app"
     },
@@ -34,10 +34,11 @@
       [
         "expo-notifications",
         {
-          "color": "#006699"
+          "color": "#6BC04A"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

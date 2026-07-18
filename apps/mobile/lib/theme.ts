@@ -1,18 +1,20 @@
 export const colors = {
-  background: '#F5FAFC',
+  background: '#F8FAFB',
   surface: '#FFFFFF',
-  primary: '#006699',
-  primaryDark: '#004D73',
-  accent: '#E8F4F8',
+  primary: '#1E4470',
+  primaryLight: '#5BB8E8',
+  accent: '#6BC04A',
+  accentLight: '#E8F5E0',
+  accentSurface: '#F0F9EC',
   text: '#1A2B33',
   textMuted: '#5A6B73',
-  border: '#D4E4EC',
-  success: '#2E7D4F',
-  warning: '#B8860B',
-  danger: '#C0392B',
-  reserved: '#5B7FA6',
-  inUse: '#006699',
-  defective: '#C0392B',
+  border: '#E2EAF0',
+  success: '#6BC04A',
+  warning: '#E6A817',
+  danger: '#D64545',
+  reserved: '#5B8FC6',
+  inUse: '#1E4470',
+  defective: '#D64545',
 };
 
 export const spacing = {
@@ -21,6 +23,15 @@ export const spacing = {
   md: 16,
   lg: 24,
   xl: 32,
+  xxl: 48,
+};
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  full: 999,
 };
 
 export const typography = {
@@ -29,6 +40,7 @@ export const typography = {
   body: { fontSize: 16, color: colors.text, lineHeight: 24 },
   caption: { fontSize: 14, color: colors.textMuted, lineHeight: 20 },
   label: { fontSize: 14, fontWeight: '600' as const, color: colors.textMuted },
+  hero: { fontSize: 32, fontWeight: '700' as const, color: colors.text },
 };
 
 export const machineStatusLabels: Record<string, string> = {
@@ -45,7 +57,7 @@ export const machineStatusLabels: Record<string, string> = {
 export const machineStatusColors: Record<string, string> = {
   AVAILABLE: colors.success,
   RESERVED: colors.reserved,
-  IN_USE: colors.inUse,
+  IN_USE: colors.primary,
   CLEANING_REQUIRED: colors.warning,
   DEFECTIVE: colors.danger,
   ADMINISTRATION_NOTIFIED: colors.warning,

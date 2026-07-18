@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { View, TextInput, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Button, Caption, Card, Heading, LoadingState } from '@/components/ui';
-import { colors, spacing, typography } from '@/lib/theme';
+import {
+  Button,
+  Caption,
+  HeroCard,
+  LoadingState,
+  OptionPicker,
+  PageShell,
+  SectionLabel,
+} from '@/components/ui';
+import { colors, typography } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
 const TIMER_STORAGE_KEY = 'woeschplan_active_timer';
+const DURATIONS = ['30', '45', '60', '90'] as const;
 
 export default function TimerScreen() {
   const { machineId: paramMachineId } = useLocalSearchParams<{ machineId?: string }>();
@@ -104,62 +113,51 @@ export default function TimerScreen() {
       method: 'POST',
     });
     await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
-    router.push('/(main)/checklist');
+    router.push({
+      pathname: '/(main)/checklist',
+      params: { machineId: machineId || activeTimer?.machineId },
+    });
   }
 
   if (isLoading) return <LoadingState />;
 
   const minutesLeft = remainingMs !== null ? Math.ceil(remainingMs / 60000) : null;
+  const secondsLeft =
+    remainingMs !== null ? Math.floor((remainingMs % 60000) / 1000) : null;
+
+  if (remainingMs !== null && remainingMs > 0) {
+    return (
+      <PageShell
+        footer={<Button label={t('timer.complete')} onPress={completeTimer} variant="accent" />}
+      >
+        <HeroCard
+          label={t('timer.remaining')}
+          title={`${minutesLeft}:${String(secondsLeft).padStart(2, '0')}`}
+          subtitle={activeTimer?.machine?.name}
+          accentColor={colors.accent}
+        />
+      </PageShell>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Heading>{t('timer.remaining')}</Heading>
-
-      {remainingMs !== null && remainingMs > 0 ? (
-        <Card>
-          <Text style={styles.countdown}>{minutesLeft} {t('timer.minutes')}</Text>
-          {activeTimer?.machine?.name ? <Caption>{activeTimer.machine.name}</Caption> : null}
-          <Button label={t('timer.complete')} onPress={completeTimer} />
-        </Card>
+    <PageShell footer={<Button label={t('timer.start')} onPress={startTimer} variant="accent" disabled={!machineId} />}>
+      <SectionLabel>{t('timer.duration')}</SectionLabel>
+      <OptionPicker
+        options={DURATIONS.map((d) => ({ value: d, label: `${d} ${t('timer.minutes')}` }))}
+        value={minutes}
+        onChange={setMinutes}
+        variant="chips"
+      />
+      {!paramMachineId ? (
+        <Text style={styles.hint}>{t('defect.noMachine')}</Text>
       ) : (
-        <Card>
-          {!paramMachineId ? (
-            <>
-              <Text style={typography.label}>Maschinen-ID</Text>
-              <TextInput
-                value={machineId}
-                onChangeText={setMachineId}
-                style={styles.input}
-                accessibilityLabel="Machine ID"
-              />
-            </>
-          ) : null}
-          <Text style={typography.label}>{t('timer.minutes')}</Text>
-          <TextInput
-            keyboardType="number-pad"
-            value={minutes}
-            onChangeText={setMinutes}
-            style={styles.input}
-            accessibilityLabel="Remaining minutes"
-          />
-          <Button label={t('timer.start')} onPress={startTimer} />
-        </Card>
+        <Caption>{machineId}</Caption>
       )}
-    </View>
+    </PageShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
-  countdown: { fontSize: 48, fontWeight: '700', color: colors.primary, textAlign: 'center' },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
-    minHeight: 48,
-    marginBottom: spacing.md,
-    fontSize: 16,
-  },
+  hint: { ...typography.caption, textAlign: 'center' },
 });

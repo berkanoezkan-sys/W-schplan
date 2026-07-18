@@ -1,9 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { ScrollView, Pressable, Text, StyleSheet } from 'react-native';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBuilding } from '@/lib/building';
-import { Body, Button, Caption, Card, EmptyState, Heading, LoadingState, StatusBadge } from '@/components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ListRow,
+  LoadingState,
+  PageShell,
+  StatusBadge,
+} from '@/components/ui';
 import { colors, spacing } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
@@ -41,16 +48,17 @@ export default function DefectsScreen() {
   if (isLoading) return <LoadingState />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Heading>Defekte</Heading>
+    <PageShell>
       {!data?.length ? (
-        <EmptyState message="Keine offenen Defektmeldungen" />
+        <EmptyState message={t('defect.empty')} />
       ) : (
         data.map((d) => (
           <Card key={d.id}>
-            <Body>{d.machine.name}</Body>
-            <Caption>{d.machine.laundryRoom.name}</Caption>
-            <Caption>{d.description}</Caption>
+            <ListRow
+              title={d.machine.name}
+              subtitle={`${d.machine.laundryRoom.name} · ${d.description}`}
+              statusColor={colors.danger}
+            />
             <StatusBadge status={d.status} />
             {d.status === 'REPORTED' ? (
               <Button
@@ -60,16 +68,11 @@ export default function DefectsScreen() {
               />
             ) : null}
             {isAdmin && d.status !== 'RESOLVED' ? (
-              <Button label={t('defect.resolve')} onPress={() => resolve(d.id)} />
+              <Button label={t('defect.resolve')} onPress={() => resolve(d.id)} variant="accent" />
             ) : null}
           </Card>
         ))
       )}
-    </ScrollView>
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md },
-});

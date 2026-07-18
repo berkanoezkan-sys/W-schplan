@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
-import { TextInput, View, StyleSheet, Text, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, Text, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '@/lib/auth';
-import { Button, LoadingState, Screen, Title } from '@/components/ui';
+import { Button, LoadingState, Logo, Screen, TextField } from '@/components/ui';
 import { colors, spacing, typography } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
@@ -35,30 +35,28 @@ export default function LoginScreen() {
         style={styles.container}
       >
         <View style={styles.hero}>
-          <Title>{t('app.name')}</Title>
-          <Text style={typography.caption}>{t('app.tagline')}</Text>
+          <Logo />
+          <Text style={styles.tagline}>{t('app.tagline')}</Text>
         </View>
 
         <View style={styles.form}>
-          <Text style={typography.label}>{t('login.email')}</Text>
-          <TextInput
+          <TextField
+            label={t('login.email')}
             accessibilityLabel={t('login.email')}
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            style={styles.input}
           />
-          <Text style={typography.label}>{t('login.password')}</Text>
-          <TextInput
+          <TextField
+            label={t('login.password')}
             accessibilityLabel={t('login.password')}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            style={styles.input}
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button label={t('login.submit')} onPress={handleLogin} loading={submitting} />
+          <Button label={t('login.submit')} onPress={handleLogin} loading={submitting} variant="accent" />
           <Text style={styles.demo}>{t('login.demo')}</Text>
         </View>
       </KeyboardAvoidingView>
@@ -68,18 +66,9 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center' },
-  hero: { marginBottom: spacing.xl, gap: spacing.sm },
+  hero: { marginBottom: spacing.xxl, alignItems: 'center', gap: spacing.md },
+  tagline: { ...typography.caption, textAlign: 'center' },
   form: { gap: spacing.sm },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
-    fontSize: 16,
-    minHeight: 48,
-    marginBottom: spacing.sm,
-  },
   error: { color: colors.danger, marginBottom: spacing.sm },
   demo: { ...typography.caption, textAlign: 'center', marginTop: spacing.md },
 });

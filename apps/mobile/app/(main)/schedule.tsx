@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ScrollView, StyleSheet, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { View, StyleSheet } from 'react-native';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBuilding } from '@/lib/building';
-import { Card, Caption, EmptyState, Heading, LoadingState, StatusBadge } from '@/components/ui';
-import { colors, spacing } from '@/lib/theme';
+import { EmptyState, ListRow, LoadingState, PageShell, SegmentedControl } from '@/components/ui';
+import { colors, machineStatusColors, spacing } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
 type ScheduleItem = {
@@ -42,77 +42,47 @@ export default function ScheduleScreen() {
   if (isLoading) return <LoadingState />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Heading>{view === 'day' ? t('schedule.today') : t('schedule.week')}</Heading>
-
-      <ViewToggle view={view} onChange={setView} />
+    <PageShell>
+      <SegmentedControl
+        value={view}
+        onChange={setView}
+        options={[
+          { value: 'day', label: t('schedule.today') },
+          { value: 'week', label: t('schedule.week') },
+        ]}
+      />
 
       {!data?.reservations.length ? (
-        <EmptyState message={t('schedule.empty')} />
+        <EmptyState
+          message={t('schedule.empty')}
+          actionLabel={t('schedule.emptyAction')}
+          onAction={() => router.push('/(main)/reserve')}
+        />
       ) : (
-        data.reservations.map((item) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="button"
-            onPress={() => router.push(`/(main)/machine/${item.machine.id}`)}
-          >
-            <Card>
-              <Text style={styles.machineName}>{item.machine.name}</Text>
-              <Caption>
-                {item.machine.laundryRoom.name} · {item.localStart}–{item.localEnd}
-              </Caption>
-              <Caption>{item.privacyLabel}</Caption>
-              <StatusBadge status={item.machine.status} />
-            </Card>
-          </Pressable>
-        ))
+        <View style={styles.list}>
+          {data.reservations.map((item) => (
+            <ListRow
+              key={item.id}
+              title={item.machine.name}
+              subtitle={`${item.machine.laundryRoom.name} · ${item.localStart}–${item.localEnd} · ${item.privacyLabel}`}
+              statusColor={machineStatusColors[item.machine.status]}
+              showChevron
+              onPress={() => router.push(`/(main)/machine/${item.machine.id}`)}
+            />
+          ))}
+        </View>
       )}
-    </ScrollView>
-  );
-}
-
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: 'day' | 'week';
-  onChange: (v: 'day' | 'week') => void;
-}) {
-  return (
-    <View style={styles.toggle}>
-      {(['day', 'week'] as const).map((v) => (
-        <Pressable
-          key={v}
-          accessibilityRole="button"
-          accessibilityState={{ selected: view === v }}
-          onPress={() => onChange(v)}
-          style={[styles.toggleBtn, view === v && styles.toggleBtnActive]}
-        >
-          <Text style={[styles.toggleText, view === v && styles.toggleTextActive]}>
-            {v === 'day' ? t('schedule.today') : t('schedule.week')}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+    </PageShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md },
-  toggle: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  toggleBtn: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
+  list: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.xs,
   },
-  toggleBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  toggleText: { fontWeight: '600', color: colors.text },
-  toggleTextActive: { color: '#fff' },
-  machineName: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 4 },
 });
