@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  RESIDENT
+  ADMINISTRATOR
+}
+
+enum MachineType {
+  WASHING_MACHINE
+  TUMBLE_DRYER
+}
+
+enum MachineStatus {
+  AVAILABLE
+  RESERVED
+  IN_USE
+  CLEANING_REQUIRED
+  DEFECTIVE
+  ADMINISTRATION_NOTIFIED
+  UNDER_REPAIR
+  OUT_OF_SERVICE
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum TimerStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum DefectStatus {
+  REPORTED
+  ADMINISTRATION_NOTIFIED
+  UNDER_REVIEW
+  REPAIR_SCHEDULED
+  RESOLVED
+}
+
+enum DefectCategory {
+  MACHINE_DOES_NOT_START
+  MACHINE_DOES_NOT_DRAIN
+  DOOR_CANNOT_BE_OPENED
+  WATER_LEAKAGE
+  UNUSUAL_NOISE
+  DRYER_DOES_NOT_HEAT
+  DISPLAY_ERROR
+  PAYMENT_SYSTEM_ISSUE
+  MACHINE_IS_DIRTY
+  OTHER
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PrivacyLabelMode {
+  FIRST_NAME
+  APARTMENT_NUMBER
+  INITIALS
+  RESERVED
+}
+
+enum ChecklistType {
+  WASHING_MACHINE
+  TUMBLE_DRYER
+}
+
+enum NotificationType {
+  UPCOMING_RESERVATION
+  RESERVATION_STARTING_SOON
+  TIMER_ALMOST_FINISHED
+  CYCLE_COMPLETED
+  CHECKLIST_REMINDER
+  RESERVATION_CHANGED
+  DEFECT_AFFECTING_RESERVATION
+  DEFECT_STATUS_UPDATED
+  MACHINE_AVAILABLE
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  apartmentNumber  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships      BuildingMembership[]
+  reservations     Reservation[]
+  timers           Timer[]
+  defectReports    DefectReport[] @relation("ReportedDefects")
+  resolvedDefects  DefectReport[] @relation("ResolvedDefects")
+  checklistCompletions ChecklistCompletion[]
+  notifications    Notification[]
+  notificationPrefs NotificationPreference?
+}
+
+model Building {
+  id               String   @id @default(uuid())
+  name             String
+  address          String
+  timezone         String   @default("Europe/Zurich")
+  language         String   @default("de")
+  privacyLabelMode PrivacyLabelMode @default(FIRST_NAME)
+  bookingRules     Json
+  houseRules       Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships      BuildingMembership[]
+  laundryRooms     LaundryRoom[]
+}
+
+model BuildingMembership {
+  id         String   @id @default(uuid())
+  userId     String
+  buildingId String
+  role       UserRole @default(RESIDENT)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, buildingId])
+}
+
+model LaundryRoom {
+  id           String   @id @default(uuid())
+  buildingId   String
+  name         String
+  floor        String?
+  instructions String?
+  isActive     Boolean  @default(true)
+  blockedUntil DateTime?
+  blockReason  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  building     Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  machines     Machine[]
+}
+
+model Machine {
+  id                            String        @id @default(uuid())
+  laundryRoomId                 String
+  name                          String
+  machineType                   MachineType
+  model                         String?
+  status                        MachineStatus @default(AVAILABLE)
+  estimatedDefaultRuntime       Int           @default(90)
+  qrCodeIdentifier              String        @unique @default(uuid())
+  cleaningChecklistConfiguration Json?
+  isActive                      Boolean       @default(true)
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
+
+  laundryRoom                   LaundryRoom   @relation(fields: [laundryRoomId], references: [id], onDelete: Cascade)
+  reservations                  Reservation[]
+  timers                        Timer[]
+  defectReports                 DefectReport[]
+  checklistCompletions          ChecklistCompletion[]
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  userId         String
+  machineId      String
+  startTime      DateTime
+  endTime        DateTime
+  status         ReservationStatus @default(CONFIRMED)
+  recurrenceRule String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machine        Machine           @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  timer          Timer?
+  checklistCompletions ChecklistCompletion[]
+
+  @@index([machineId, startTime, endTime])
+}
+
+model Timer {
+  id                      String      @id @default(uuid())
+  reservationId           String?     @unique
+  machineId               String
+  userId                  String
+  startedAt               DateTime    @default(now())
+  expectedCompletionTime  DateTime
+  status                  TimerStatus @default(ACTIVE)
+  notificationSettings    Json
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  reservation             Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  machine                 Machine      @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DefectReport {
+  id                      String         @id @default(uuid())
+  machineId               String
+  reportedById            String
+  category                DefectCategory
+  description             String
+  photoUrl                String?
+  severity                Severity       @default(MEDIUM)
+  status                  DefectStatus   @default(REPORTED)
+  administrationNotifiedAt DateTime?
+  resolvedAt              DateTime?
+  resolvedById            String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  machine                 Machine        @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  reportedBy              User           @relation("ReportedDefects", fields: [reportedById], references: [id], onDelete: Cascade)
+  resolvedBy              User?          @relation("ResolvedDefects", fields: [resolvedById], references: [id], onDelete: SetNull)
+}
+
+model ChecklistCompletion {
+  id             String        @id @default(uuid())
+  machineId      String
+  reservationId  String?
+  userId         String
+  checklistType  ChecklistType
+  completedItems Json
+  completedAt    DateTime      @default(now())
+
+  machine        Machine       @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  reservation    Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreference {
+  id                              String  @id @default(uuid())
+  userId                          String  @unique
+  upcomingReservation             Boolean @default(true)
+  reservationStartingSoon         Boolean @default(true)
+  timerAlmostFinished             Boolean @default(true)
+  cycleCompleted                    Boolean @default(true)
+  checklistReminder                 Boolean @default(true)
+  reservationChanged                Boolean @default(true)
+  defectAffectingReservation        Boolean @default(true)
+  defectStatusUpdated               Boolean @default(true)
+  machineAvailable                  Boolean @default(true)
+
+  user                            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

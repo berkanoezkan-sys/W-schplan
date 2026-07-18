@@ -1,0 +1,39 @@
+{
+  "name": "@woeschplan/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@tanstack/react-query": "^5.81.5",
+    "@woeschplan/shared": "*",
+    "expo": "~53.0.17",
+    "expo-camera": "~16.1.10",
+    "expo-constants": "~17.1.7",
+    "expo-linking": "~7.1.7",
+    "expo-notifications": "~0.31.4",
+    "expo-router": "~5.1.3",
+    "expo-secure-store": "~14.2.3",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.4",
+    "@types/react": "~19.0.14",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
