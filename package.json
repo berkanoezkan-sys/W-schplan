@@ -21,7 +21,8 @@
     "dev:down": "./scripts/dev-down.sh",
     "dev:status": "./scripts/dev-status.sh",
     "export:migration": "./scripts/export-for-pc-migration.sh",
-    "pc:restore": "./scripts/pc-restore-from-backup.sh"
+    "pc:restore": "./scripts/pc-restore-from-backup.sh",
+    "pc:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pc-start.ps1"
   },
   "engines": {
     "node": ">=20"

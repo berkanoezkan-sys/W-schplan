@@ -12,15 +12,15 @@ Der Agent liest `.cursor/rules/pc-first-start.mdc` und führt automatisch aus:
 4. Dev-Stack starten
 5. Chat-Import anleiten
 
-Manuell (dein Backup-Pfad):
+## Ein Klick auf dem PC
+
+Doppelklick auf **`pc-start.bat`** im Repo-Root — oder in PowerShell:
 
 ```powershell
 cd C:\dev\Woeschplan
-$env:WOESCHPLAN_BACKUP_DIR = "C:\Users\moezkan\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup"
-.\scripts\pc-restore-from-backup.ps1
-npm run dev:up
+npm run pc:start
 ```
 
-Das Skript findet automatisch den neuesten Snapshot-Ordner, auch wenn `latest` fehlt.
+Das Skript stellt das iCloud-Backup wieder her, setzt die LAN-IP und startet den Dev-Stack.
 
 Warte vorher, bis iCloud Drive synchronisiert ist.
