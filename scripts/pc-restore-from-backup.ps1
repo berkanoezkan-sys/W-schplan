@@ -87,13 +87,17 @@ if (Test-Path $chatExport) {
 Write-Host "-> npm install"
 & $Npm install
 
-Write-Host "-> Docker Postgres"
-docker compose up -d
-Start-Sleep -Seconds 5
-
-Write-Host "-> Database migrate + seed"
-& $Npm run db:migrate
-& $Npm run db:seed
+if ($env:WOESCHPLAN_NO_DOCKER -eq "1") {
+    Write-Host "-> Skipping Docker (WOESCHPLAN_NO_DOCKER=1)"
+    Write-Host "   Set DATABASE_URL in apps/api/.env — see docs/OHNE-DOCKER.md"
+} else {
+    Write-Host "-> Docker Postgres"
+    docker compose up -d
+    Start-Sleep -Seconds 5
+    Write-Host "-> Database migrate + seed"
+    & $Npm run db:migrate
+    & $Npm run db:seed
+}
 
 @(
     "restoredAt=$(Get-Date -Format o)",
