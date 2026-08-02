@@ -22,7 +22,8 @@
     "dev:status": "./scripts/dev-status.sh",
     "export:migration": "./scripts/export-for-pc-migration.sh",
     "pc:restore": "./scripts/pc-restore-from-backup.sh",
-    "pc:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pc-start.ps1"
+    "pc:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pc-start.ps1",
+    "pc:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-desktop-shortcut.ps1"
   },
   "engines": {
     "node": ">=20"
