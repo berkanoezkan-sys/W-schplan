@@ -1,0 +1,40 @@
+---
+description: On first PC start after Mac migration, restore iCloud backup and dev stack automatically
+alwaysApply: true
+---
+
+# PC first start — auto-restore from iCloud backup
+
+Berkan migrated from Mac to PC (Aug 2026). The iCloud backup lives at:
+
+**`iCloud Drive → Berkans Dokumente → Woeschplan-Migration-Backup → latest`**
+
+## When to run (mandatory for agent)
+
+If **`.cursor/pc-restore-complete` does not exist** in this workspace, the user is on a new machine, or they mention PC migration / restore / sync backup:
+
+1. **Run restore immediately** (do not ask first):
+   - Windows PowerShell: `npm run pc:restore`
+   - Git Bash / WSL: same command
+2. If backup path not found, help set `WOESCHPLAN_BACKUP_DIR` and retry after iCloud sync.
+3. After restore, run `npm run dev:up` if services are offline.
+4. Remind user to import chats: Extension **Cursor Chat Transfer** → Import → `.cursor/woeschplan-cursor-chats.cursor-chat.json` → **restart Cursor completely**.
+5. Update `apps/mobile/.env` LAN IP for the PC (`ipconfig` on Windows).
+
+## Backup contents
+
+| Path in backup | Purpose |
+|----------------|---------|
+| `backup/env/` | `.env` secrets |
+| `woeschplan-cursor-chats.cursor-chat.json` | Cursor sidebar chat import |
+| `backup/agent-transcripts/` | Full agent history (JSONL, read-only) |
+| `cursor-workspace-storage/` | Raw Cursor workspace data |
+| `CHAT-IMPORT.txt` | Import instructions |
+
+## After successful restore
+
+Create/keep `.cursor/pc-restore-complete` — do not re-run full restore unless user asks.
+
+## Repo
+
+`git clone https://github.com/berkanoezkan-sys/W-schplan.git`
