@@ -1,15 +1,23 @@
-# One-click PC restore + dev stack for Wöschplan.
+# One-click PC restore + dev stack for Woeschplan.
 # Double-click pc-start.bat or run: .\scripts\pc-start.ps1
 $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Parent
 Set-Location $Root
+
+function Get-NpmCmd {
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($npm) { return $npm.Source }
+    return "npm.cmd"
+}
+
+$Npm = Get-NpmCmd
 
 if (-not $env:WOESCHPLAN_BACKUP_DIR) {
     $env:WOESCHPLAN_BACKUP_DIR = "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup"
 }
 
 Write-Host ""
-Write-Host "=== Wöschplan PC Start ===" -ForegroundColor Cyan
+Write-Host "=== Woeschplan PC Start ===" -ForegroundColor Cyan
 Write-Host "Repo:   $Root"
 Write-Host "Backup: $env:WOESCHPLAN_BACKUP_DIR"
 Write-Host ""
@@ -18,10 +26,10 @@ $Marker = Join-Path $Root ".cursor\pc-restore-complete"
 if (-not (Test-Path $Marker)) {
     & (Join-Path $Root "scripts\pc-restore-from-backup.ps1")
 } else {
-    Write-Host "→ Restore already done ($Marker) — skipping full restore" -ForegroundColor DarkGray
-    Write-Host "→ npm install"
-    npm install
-    Write-Host "→ Docker Postgres"
+    Write-Host "-> Restore already done ($Marker) - skipping full restore" -ForegroundColor DarkGray
+    Write-Host "-> npm install"
+    & $Npm install
+    Write-Host "-> Docker Postgres"
     docker compose up -d
     Start-Sleep -Seconds 3
 }
@@ -55,7 +63,7 @@ if ($lanIp) {
         $content = $content.TrimEnd() + "`nEXPO_PUBLIC_API_URL=$expected`n"
     }
     Set-Content $mobileEnv $content -NoNewline
-    Write-Host "→ Updated apps/mobile/.env EXPO_PUBLIC_API_URL=$expected" -ForegroundColor Green
+    Write-Host "-> Updated apps/mobile/.env EXPO_PUBLIC_API_URL=$expected" -ForegroundColor Green
 }
 
 $bash = @(
@@ -64,17 +72,17 @@ $bash = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 Write-Host ""
-Write-Host "→ Starting dev stack (Postgres + API :3001 + Expo :8081)…" -ForegroundColor Cyan
+Write-Host "-> Starting dev stack (Postgres + API :3001 + Expo :8081)..." -ForegroundColor Cyan
 Write-Host "  Press Ctrl+C to stop Expo; close this window to end the session."
 Write-Host ""
 
 if ($bash) {
     & $bash (Join-Path $Root "scripts\dev-up.sh")
 } else {
-    Write-Host "Git Bash not found — starting API and Expo manually." -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root'; npm run dev:api"
+    Write-Host "Git Bash not found - starting API and Expo manually." -ForegroundColor Yellow
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root'; & '$Npm' run dev:api"
     Start-Sleep -Seconds 5
     $env:EXPO_PUBLIC_API_URL = if ($lanIp) { "http://${lanIp}:3001" } else { "http://localhost:3001" }
     Set-Location (Join-Path $Root "apps\mobile")
-    npx expo start --host lan
+    npx.cmd expo start --host lan
 }

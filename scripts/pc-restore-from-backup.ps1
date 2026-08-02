@@ -1,9 +1,15 @@
-# Restore Wöschplan on a new PC from iCloud migration backup.
+# Restore Woeschplan on a new PC from iCloud migration backup.
 # Usage: .\scripts\pc-restore-from-backup.ps1
 $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Parent
 Set-Location $Root
 $Marker = Join-Path $Root ".cursor\pc-restore-complete"
+
+function Get-NpmCmd {
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($npm) { return $npm.Source }
+    return "npm.cmd"
+}
 
 function Test-BackupRoot($Path) {
     return Test-Path (Join-Path $Path "backup\env")
@@ -48,7 +54,9 @@ function Find-Backup {
     return $null
 }
 
-Write-Host "→ Wöschplan PC restore" -ForegroundColor Cyan
+$Npm = Get-NpmCmd
+
+Write-Host "-> Woeschplan PC restore" -ForegroundColor Cyan
 $Backup = Find-Backup
 if (-not $Backup) {
     Write-Host "Backup not found. Wait for iCloud sync, then run:" -ForegroundColor Yellow
@@ -65,27 +73,27 @@ $chatExport = Join-Path $Backup "woeschplan-cursor-chats.cursor-chat.json"
 
 if (Test-Path $apiEnv) {
     Copy-Item $apiEnv (Join-Path $Root "apps\api\.env") -Force
-    Write-Host "  ✓ apps/api/.env restored"
+    Write-Host "  [ok] apps/api/.env restored"
 }
 if (Test-Path $mobileEnv) {
     Copy-Item $mobileEnv (Join-Path $Root "apps\mobile\.env") -Force
-    Write-Host "  ✓ apps/mobile/.env restored (update LAN IP with ipconfig)"
+    Write-Host "  [ok] apps/mobile/.env restored (update LAN IP with ipconfig)"
 }
 if (Test-Path $chatExport) {
     Copy-Item $chatExport (Join-Path $Root ".cursor\woeschplan-cursor-chats.cursor-chat.json") -Force
-    Write-Host "  ✓ Chat export copied to .cursor/"
+    Write-Host "  [ok] Chat export copied to .cursor/"
 }
 
-Write-Host "→ npm install"
-npm install
+Write-Host "-> npm install"
+& $Npm install
 
-Write-Host "→ Docker Postgres"
+Write-Host "-> Docker Postgres"
 docker compose up -d
 Start-Sleep -Seconds 5
 
-Write-Host "→ Database migrate + seed"
-npm run db:migrate
-npm run db:seed
+Write-Host "-> Database migrate + seed"
+& $Npm run db:migrate
+& $Npm run db:seed
 
 @(
     "restoredAt=$(Get-Date -Format o)",
@@ -93,6 +101,6 @@ npm run db:seed
 ) | Set-Content $Marker
 
 Write-Host ""
-Write-Host "✓ PC restore complete" -ForegroundColor Green
+Write-Host "[ok] PC restore complete" -ForegroundColor Green
 Write-Host "  Dev start: npm run dev:up"
-Write-Host "  Chat import: Cursor Chat Transfer → .cursor\woeschplan-cursor-chats.cursor-chat.json"
+Write-Host '  Chat import: Cursor Chat Transfer -> .cursor\woeschplan-cursor-chats.cursor-chat.json'
