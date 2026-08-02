@@ -12,13 +12,15 @@ Der Agent liest `.cursor/rules/pc-first-start.mdc` und führt automatisch aus:
 4. Dev-Stack starten
 5. Chat-Import anleiten
 
-Manuell:
+Manuell (dein Backup-Pfad):
 
 ```powershell
-git clone https://github.com/berkanoezkan-sys/W-schplan.git Woeschplan
-cd Woeschplan
-npm run pc:restore
+cd C:\dev\Woeschplan
+$env:WOESCHPLAN_BACKUP_DIR = "C:\Users\moezkan\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup"
+.\scripts\pc-restore-from-backup.ps1
 npm run dev:up
 ```
+
+Das Skript findet automatisch den neuesten Snapshot-Ordner, auch wenn `latest` fehlt.
 
 Warte vorher, bis iCloud Drive synchronisiert ist.

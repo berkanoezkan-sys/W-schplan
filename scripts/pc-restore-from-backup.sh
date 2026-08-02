@@ -6,21 +6,50 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 MARKER="$ROOT/.cursor/pc-restore-complete"
-BACKUP_NAME="Woeschplan-Migration-Backup/latest"
+is_backup_root() {
+  [[ -d "$1/backup/env" ]]
+}
 
-find_backup() {
-  local candidates=(
-    "$HOME/iCloudDrive/Berkans Dokumente/$BACKUP_NAME"
-    "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Berkans Dokumente/$BACKUP_NAME"
-    "/mnt/c/Users/$USER/iCloudDrive/Berkans Dokumente/$BACKUP_NAME"
-  )
-  if [[ -n "${WOESCHPLAN_BACKUP_DIR:-}" && -d "$WOESCHPLAN_BACKUP_DIR" ]]; then
-    echo "$WOESCHPLAN_BACKUP_DIR"
+resolve_backup_root() {
+  local path="$1"
+  [[ -d "$path" ]] || return 1
+  if is_backup_root "$path"; then
+    echo "$path"
     return 0
   fi
+  if [[ -d "$path/latest" ]]; then
+    resolve_backup_root "$path/latest" && return 0
+  fi
+  local newest dir
+  for dir in $(ls -1d "$path"/*/ 2>/dev/null | sort -r); do
+    if is_backup_root "$dir"; then
+      newest="${dir%/}"
+      break
+    fi
+  done
+  if [[ -n "$newest" ]]; then
+    echo "${newest%/}"
+    return 0
+  fi
+  return 1
+}
+
+find_backup() {
+  if [[ -n "${WOESCHPLAN_BACKUP_DIR:-}" ]]; then
+    resolve_backup_root "$WOESCHPLAN_BACKUP_DIR" && return 0
+  fi
+  local candidates=(
+    "$HOME/iCloudDrive/Berkans Dokumente/Woeschplan-Migration-Backup"
+    "$HOME/iCloudDrive/Berkans Dokumente/Woeschplan-Migration-Backup/latest"
+    "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Berkans Dokumente/Woeschplan-Migration-Backup"
+    "/mnt/c/Users/moezkan/iCloudDrive/Berkans Dokumente/Woeschplan-Migration-Backup"
+    "/mnt/c/Users/$USER/iCloudDrive/Berkans Dokumente/Woeschplan-Migration-Backup"
+  )
+  local dir resolved
   for dir in "${candidates[@]}"; do
-    if [[ -d "$dir" ]]; then
-      echo "$dir"
+    resolved="$(resolve_backup_root "$dir" 2>/dev/null || true)"
+    if [[ -n "$resolved" ]]; then
+      echo "$resolved"
       return 0
     fi
   done
@@ -30,7 +59,7 @@ find_backup() {
 echo "→ Wöschplan PC restore"
 BACKUP="$(find_backup)" || {
   echo "Backup not found. Wait for iCloud sync, then set:"
-  echo "  export WOESCHPLAN_BACKUP_DIR=/path/to/Woeschplan-Migration-Backup/latest"
+  echo "  export WOESCHPLAN_BACKUP_DIR=\"/mnt/c/Users/moezkan/iCloudDrive/Berkans Dokumente/Woeschplan-Migration-Backup\""
   exit 1
 }
 echo "  Backup: $BACKUP"

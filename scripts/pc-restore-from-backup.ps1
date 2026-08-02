@@ -5,18 +5,45 @@ $Root = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Parent
 Set-Location $Root
 $Marker = Join-Path $Root ".cursor\pc-restore-complete"
 
-function Find-Backup {
-    if ($env:WOESCHPLAN_BACKUP_DIR -and (Test-Path $env:WOESCHPLAN_BACKUP_DIR)) {
-        return $env:WOESCHPLAN_BACKUP_DIR
+function Test-BackupRoot($Path) {
+    return Test-Path (Join-Path $Path "backup\env")
+}
+
+function Resolve-BackupRoot($Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    if (Test-BackupRoot $Path) { return $Path }
+
+    $latest = Join-Path $Path "latest"
+    if (Test-Path $latest) {
+        $resolved = Resolve-BackupRoot $latest
+        if ($resolved) { return $resolved }
     }
+
+    $newest = Get-ChildItem $Path -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-BackupRoot $_.FullName } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+    if ($newest) { return $newest.FullName }
+
+    return $null
+}
+
+function Find-Backup {
+    if ($env:WOESCHPLAN_BACKUP_DIR) {
+        $resolved = Resolve-BackupRoot $env:WOESCHPLAN_BACKUP_DIR
+        if ($resolved) { return $resolved }
+    }
+
     $user = $env:USERNAME
     $candidates = @(
+        "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup",
         "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest",
-        "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest",
+        "C:\Users\$user\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup",
         "C:\Users\$user\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest"
     )
     foreach ($dir in $candidates) {
-        if (Test-Path $dir) { return $dir }
+        $resolved = Resolve-BackupRoot $dir
+        if ($resolved) { return $resolved }
     }
     return $null
 }
@@ -25,7 +52,7 @@ Write-Host "→ Wöschplan PC restore" -ForegroundColor Cyan
 $Backup = Find-Backup
 if (-not $Backup) {
     Write-Host "Backup not found. Wait for iCloud sync, then run:" -ForegroundColor Yellow
-    Write-Host '  $env:WOESCHPLAN_BACKUP_DIR = "C:\path\to\Woeschplan-Migration-Backup\latest"'
+    Write-Host '  $env:WOESCHPLAN_BACKUP_DIR = "C:\Users\moezkan\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup"'
     exit 1
 }
 Write-Host "  Backup: $Backup"
