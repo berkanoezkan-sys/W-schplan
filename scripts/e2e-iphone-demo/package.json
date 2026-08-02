@@ -1,0 +1,11 @@
+{
+  "name": "woeschplan-e2e-iphone-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "node run-demo.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.52.0"
+  }
+}

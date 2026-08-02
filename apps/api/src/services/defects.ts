@@ -3,7 +3,7 @@ import { isSeriousDefect } from './reservations.js';
 
 export async function createDefectReport(params: {
   userId: string;
-  machineId: string;
+  resourceId: string;
   category: string;
   description: string;
   severity: string;
@@ -12,24 +12,24 @@ export async function createDefectReport(params: {
   return prisma.$transaction(async (tx) => {
     const report = await tx.defectReport.create({
       data: {
-        machineId: params.machineId,
+        resourceId: params.resourceId,
         reportedById: params.userId,
         category: params.category as never,
         description: params.description,
         severity: params.severity as never,
         photoUrl: params.photoUrl,
       },
-      include: { machine: { include: { laundryRoom: true } }, reportedBy: true },
+      include: { resource: { include: { laundryRoom: true } }, reportedBy: true },
     });
 
     if (isSeriousDefect(params.category) || params.severity === 'CRITICAL') {
-      await tx.machine.update({
-        where: { id: params.machineId },
+      await tx.resource.update({
+        where: { id: params.resourceId },
         data: { status: 'OUT_OF_SERVICE' },
       });
     } else {
-      await tx.machine.update({
-        where: { id: params.machineId },
+      await tx.resource.update({
+        where: { id: params.resourceId },
         data: { status: 'DEFECTIVE' },
       });
     }
@@ -51,8 +51,8 @@ export async function markAdministrationNotified(defectId: string, userId: strin
       },
     });
 
-    await tx.machine.update({
-      where: { id: defect.machineId },
+    await tx.resource.update({
+      where: { id: defect.resourceId },
       data: { status: 'ADMINISTRATION_NOTIFIED' },
     });
 
@@ -84,8 +84,8 @@ export async function resolveDefect(defectId: string, adminUserId: string) {
       },
     });
 
-    await tx.machine.update({
-      where: { id: defect.machineId },
+    await tx.resource.update({
+      where: { id: defect.resourceId },
       data: { status: 'AVAILABLE' },
     });
 

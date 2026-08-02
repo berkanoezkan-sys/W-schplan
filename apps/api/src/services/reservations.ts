@@ -1,21 +1,29 @@
+import type { BookingRules, ResolvedBookingRules } from '@woeschplan/shared';
+import type { ResourceType } from '@woeschplan/shared';
+import type { TimeRange } from '@woeschplan/shared';
 import {
-  bookingRulesSchema,
-  type BookingRules,
+  normalizeBookingRules,
+  reservationOverlapsQuietHours,
+  resolveBookingRulesForResource,
   SERIOUS_DEFECT_CATEGORIES,
 } from '@woeschplan/shared';
 import { Prisma, ReservationStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 
-const DEFAULT_BOOKING_RULES: BookingRules = bookingRulesSchema.parse({});
-
 export function parseBookingRules(raw: unknown): BookingRules {
-  return bookingRulesSchema.parse(raw ?? DEFAULT_BOOKING_RULES);
+  return normalizeBookingRules(raw);
 }
 
+export { resolveBookingRulesForResource, resolveBookingRulesForResource as resolveBookingRulesForMachine };
+export type { ResolvedBookingRules, ResourceType as MachineTypeKey };
+
 export class ReservationConflictError extends Error {
-  constructor(message = 'Reservation overlaps with an existing booking') {
+  code: 'OVERLAP' | 'BUFFER' = 'OVERLAP';
+
+  constructor(message = 'Reservation overlaps with an existing booking', code: 'OVERLAP' | 'BUFFER' = 'OVERLAP') {
     super(message);
     this.name = 'ReservationConflictError';
+    this.code = code;
   }
 }
 
@@ -28,17 +36,48 @@ export class ReservationValidationError extends Error {
 
 export async function validateReservationInput(params: {
   userId: string;
-  machineId: string;
+  resourceId: string;
   startTime: Date;
   endTime: Date;
   buildingId: string;
-  bookingRules: BookingRules;
+  bookingRules: ResolvedBookingRules;
+  quietHours: TimeRange;
+  timezone: string;
   excludeReservationId?: string;
+  toLocalParts?: (d: Date) => { date: string; minutes: number };
 }) {
-  const { userId, machineId, startTime, endTime, bookingRules, excludeReservationId } = params;
+  const {
+    userId,
+    resourceId,
+    startTime,
+    endTime,
+    bookingRules,
+    quietHours,
+    excludeReservationId,
+    toLocalParts,
+  } = params;
 
   if (endTime <= startTime) {
     throw new ReservationValidationError('End time must be after start time');
+  }
+
+  const localParts =
+    toLocalParts ??
+    ((d: Date) => ({
+      date: d.toISOString().slice(0, 10),
+      minutes: d.getHours() * 60 + d.getMinutes(),
+    }));
+
+  if (
+    reservationOverlapsQuietHours({
+      startTime,
+      endTime,
+      quietHours,
+      bufferMinutes: bookingRules.bufferMinutesBetweenReservations,
+      toLocalParts: localParts,
+    })
+  ) {
+    throw new ReservationValidationError('QUIET_HOURS_CONFLICT');
   }
 
   const durationMinutes = (endTime.getTime() - startTime.getTime()) / 60000;
@@ -57,24 +96,24 @@ export async function validateReservationInput(params: {
     throw new ReservationValidationError('Booking too far in advance');
   }
 
-  const machine = await prisma.machine.findUnique({
-    where: { id: machineId },
+  const resource = await prisma.resource.findUnique({
+    where: { id: resourceId },
     include: { laundryRoom: true },
   });
 
-  if (!machine || !machine.isActive || !machine.laundryRoom.isActive) {
-    throw new ReservationValidationError('Machine is not available for booking');
+  if (!resource || !resource.isActive || !resource.laundryRoom.isActive) {
+    throw new ReservationValidationError('Resource is not available for booking');
   }
 
-  if (['DEFECTIVE', 'OUT_OF_SERVICE', 'UNDER_REPAIR', 'ADMINISTRATION_NOTIFIED'].includes(machine.status)) {
-    throw new ReservationValidationError('Machine is currently unavailable');
+  if (['DEFECTIVE', 'OUT_OF_SERVICE', 'UNDER_REPAIR', 'ADMINISTRATION_NOTIFIED'].includes(resource.status)) {
+    throw new ReservationValidationError('Resource is currently unavailable');
   }
 
   const activeCount = await prisma.reservation.count({
     where: {
       userId,
       status: ReservationStatus.CONFIRMED,
-      machine: { laundryRoom: { buildingId: params.buildingId } },
+      resource: { laundryRoom: { buildingId: params.buildingId } },
       ...(excludeReservationId ? { NOT: { id: excludeReservationId } } : {}),
     },
   });
@@ -85,19 +124,19 @@ export async function validateReservationInput(params: {
 }
 
 export async function assertNoOverlap(params: {
-  machineId: string;
+  resourceId: string;
   startTime: Date;
   endTime: Date;
   bufferMinutes: number;
   excludeReservationId?: string;
 }) {
-  const { machineId, startTime, endTime, bufferMinutes, excludeReservationId } = params;
+  const { resourceId, startTime, endTime, bufferMinutes, excludeReservationId } = params;
   const bufferedStart = new Date(startTime.getTime() - bufferMinutes * 60000);
   const bufferedEnd = new Date(endTime.getTime() + bufferMinutes * 60000);
 
   const overlap = await prisma.reservation.findFirst({
     where: {
-      machineId,
+      resourceId,
       status: ReservationStatus.CONFIRMED,
       ...(excludeReservationId ? { NOT: { id: excludeReservationId } } : {}),
       AND: [
@@ -108,22 +147,25 @@ export async function assertNoOverlap(params: {
   });
 
   if (overlap) {
-    throw new ReservationConflictError();
+    throw new ReservationConflictError('Reservation overlaps with an existing booking', 'OVERLAP');
   }
 }
 
 export async function createReservationSafe(params: {
   userId: string;
-  machineId: string;
+  resourceId: string;
   startTime: Date;
   endTime: Date;
   buildingId: string;
-  bookingRules: BookingRules;
+  bookingRules: ResolvedBookingRules;
+  quietHours: TimeRange;
+  timezone: string;
+  toLocalParts?: (d: Date) => { date: string; minutes: number };
   recurrenceRule?: string;
 }) {
   await validateReservationInput(params);
   await assertNoOverlap({
-    machineId: params.machineId,
+    resourceId: params.resourceId,
     startTime: params.startTime,
     endTime: params.endTime,
     bufferMinutes: params.bookingRules.bufferMinutesBetweenReservations,
@@ -133,13 +175,13 @@ export async function createReservationSafe(params: {
     return await prisma.reservation.create({
       data: {
         userId: params.userId,
-        machineId: params.machineId,
+        resourceId: params.resourceId,
         startTime: params.startTime,
         endTime: params.endTime,
         recurrenceRule: params.recurrenceRule,
       },
       include: {
-        machine: { include: { laundryRoom: true } },
+        resource: { include: { laundryRoom: true } },
         user: true,
       },
     });
@@ -154,12 +196,12 @@ export async function createReservationSafe(params: {
 export async function cancelReservationSafe(params: {
   reservationId: string;
   userId: string;
-  bookingRules: BookingRules;
+  bookingRules: ResolvedBookingRules;
   isAdmin: boolean;
 }) {
   const reservation = await prisma.reservation.findUnique({
     where: { id: params.reservationId },
-    include: { machine: { include: { laundryRoom: { include: { building: true } } } } },
+    include: { resource: { include: { laundryRoom: { include: { building: true } } } } },
   });
 
   if (!reservation) {

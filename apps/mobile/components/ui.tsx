@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   TextInput,
   ScrollView,
   Image,
+  Platform,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
@@ -25,12 +27,20 @@ export function PageShell({
   footer?: React.ReactNode;
   scroll?: boolean;
 }) {
-  const content = (
-    <>
-      <View style={styles.pageContent}>{children}</View>
-      {footer ? <View style={styles.pageFooter}>{footer}</View> : null}
-    </>
-  );
+  if (scroll && footer) {
+    return (
+      <View style={styles.page}>
+        <ScrollView
+          style={styles.pageScroll}
+          contentContainerStyle={styles.pageScrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.pageContent}>{children}</View>
+        </ScrollView>
+        <View style={styles.pageFooter}>{footer}</View>
+      </View>
+    );
+  }
 
   if (scroll) {
     return (
@@ -39,12 +49,17 @@ export function PageShell({
         contentContainerStyle={styles.pageScrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {content}
+        <View style={styles.pageContent}>{children}</View>
       </ScrollView>
     );
   }
 
-  return <View style={[styles.page, styles.pageFixed]}>{content}</View>;
+  return (
+    <View style={[styles.page, styles.pageFixed]}>
+      <View style={[styles.pageContent, styles.pageContentFixed]}>{children}</View>
+      {footer ? <View style={styles.pageFooter}>{footer}</View> : null}
+    </View>
+  );
 }
 
 export function Screen({ children }: { children: React.ReactNode }) {
@@ -156,6 +171,81 @@ export function TextField({
         style={[styles.input, error ? styles.inputError : null, props.multiline && styles.textArea]}
         {...props}
       />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+export function PasswordField({
+  label,
+  error,
+  value,
+  onChangeText,
+  ...props
+}: Omit<TextInputProps, 'secureTextEntry'> & { label?: string; error?: string | null }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <View style={styles.fieldWrap}>
+      {label ? <Text style={typography.label}>{label}</Text> : null}
+      <View style={styles.passwordWrap}>
+        <TextInput
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, styles.passwordInput, error ? styles.inputError : null]}
+          secureTextEntry={!visible}
+          value={value}
+          onChangeText={onChangeText}
+          autoCapitalize="none"
+          autoCorrect={false}
+          {...props}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={visible ? t('auth.hidePassword') : t('auth.showPassword')}
+          onPress={() => setVisible((current) => !current)}
+          style={styles.passwordToggle}
+        >
+          <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.textMuted} />
+        </Pressable>
+      </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+export function ConsentCheckbox({
+  checked,
+  onChange,
+  label,
+  linkLabel,
+  onLinkPress,
+  error,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  linkLabel: string;
+  onLinkPress: () => void;
+  error?: string | null;
+}) {
+  return (
+    <View style={styles.consentWrap}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked }}
+        onPress={() => onChange(!checked)}
+        style={styles.consentRow}
+      >
+        <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+          {checked ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+        </View>
+        <Text style={styles.consentText}>
+          {label}{' '}
+          <Text style={styles.consentLink} onPress={onLinkPress}>
+            {linkLabel}
+          </Text>
+        </Text>
+      </Pressable>
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
@@ -396,29 +486,124 @@ export function StatPill({
   count,
   color,
   onPress,
+  emphasized,
+  loading,
 }: {
   label: string;
   count: number;
   color: string;
   onPress?: () => void;
+  emphasized?: boolean;
+  loading?: boolean;
 }) {
   const inner = (
     <>
       <View style={[styles.statDot, { backgroundColor: color }]} />
-      <Text style={styles.statCount}>{count}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statCount, emphasized && styles.statCountEmphasized]}>
+        {loading ? '—' : count}
+      </Text>
+      <Text style={[styles.statLabel, emphasized && styles.statLabelEmphasized]} numberOfLines={1}>
+        {label}
+      </Text>
     </>
   );
 
+  const pillStyle = [
+    styles.statPill,
+    emphasized && styles.statPillEmphasized,
+    loading && styles.statPillLoading,
+  ];
+
   if (onPress) {
     return (
-      <Pressable accessibilityRole="button" onPress={onPress} style={styles.statPill}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [...pillStyle, pressed && styles.statPillPressed]}
+      >
         {inner}
       </Pressable>
     );
   }
 
-  return <View style={styles.statPill}>{inner}</View>;
+  return <View style={pillStyle}>{inner}</View>;
+}
+
+export function PortfolioStatCard({
+  icon,
+  count,
+  label,
+  accentColor = colors.primary,
+  onPress,
+  loading,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  count: number;
+  label: string;
+  accentColor?: string;
+  onPress?: () => void;
+  loading?: boolean;
+}) {
+  const content = (
+    <>
+      <View style={[styles.portfolioIconWrap, { backgroundColor: `${accentColor}14` }]}>
+        <Ionicons name={icon} size={18} color={accentColor} />
+      </View>
+      <Text style={styles.portfolioCount}>{loading ? '—' : count}</Text>
+      <Text style={styles.portfolioLabel} numberOfLines={2}>
+        {label}
+      </Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.portfolioCard, pressed && styles.portfolioCardPressed]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.portfolioCard}>{content}</View>;
+}
+
+export function PortfolioStatsRow({
+  buildingCount,
+  residentCount,
+  onBuildingsPress,
+  onResidentsPress,
+  loading,
+}: {
+  buildingCount: number;
+  residentCount: number;
+  onBuildingsPress?: () => void;
+  onResidentsPress?: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <View style={styles.portfolioRow}>
+      <PortfolioStatCard
+        icon="business-outline"
+        count={buildingCount}
+        label={t('dashboard.portfolio.buildings')}
+        accentColor={colors.primary}
+        onPress={onBuildingsPress}
+        loading={loading}
+      />
+      <PortfolioStatCard
+        icon="people-outline"
+        count={residentCount}
+        label={t('dashboard.portfolio.residents')}
+        accentColor={colors.accent}
+        onPress={onResidentsPress}
+        loading={loading}
+      />
+    </View>
+  );
 }
 
 export function QuickActionBar({
@@ -509,9 +694,18 @@ export function LoadingState() {
 // ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background },
-  pageScrollContent: { flexGrow: 1 },
+  page: {
+    flex: 1,
+    backgroundColor: colors.background,
+    ...Platform.select({
+      web: { minHeight: '100vh' as const },
+      default: {},
+    }),
+  },
+  pageScroll: { flex: 1 },
+  pageScrollContent: { paddingBottom: spacing.md },
   pageContent: { padding: spacing.md, gap: spacing.md },
+  pageContentFixed: { flex: 1, minHeight: 0 },
   pageFooter: {
     padding: spacing.md,
     paddingTop: 0,
@@ -520,7 +714,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   pageFixed: { justifyContent: 'space-between' },
-  screen: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    ...Platform.select({
+      web: { minHeight: '100vh' as const },
+      default: {},
+    }),
+  },
 
   sectionLabel: { ...typography.label, marginBottom: spacing.sm },
 
@@ -561,6 +763,36 @@ const styles = StyleSheet.create({
   inputError: { borderColor: colors.danger },
   textArea: { minHeight: 120, textAlignVertical: 'top', paddingTop: spacing.md },
   fieldError: { color: colors.danger, fontSize: 13 },
+  passwordWrap: { position: 'relative' },
+  passwordInput: { paddingRight: 48 },
+  passwordToggle: {
+    position: 'absolute',
+    right: spacing.sm,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    minWidth: 48,
+    alignItems: 'center',
+  },
+  consentWrap: { gap: spacing.xs },
+  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, minHeight: 48 },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    backgroundColor: colors.surface,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  consentText: { ...typography.body, flex: 1 },
+  consentLink: { color: colors.primary, fontWeight: '600' },
 
   button: {
     backgroundColor: colors.primary,
@@ -655,19 +887,79 @@ const styles = StyleSheet.create({
 
   statPill: {
     flex: 1,
-    flexDirection: 'row',
+    flexBasis: 0,
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 4,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm + 2,
-    borderWidth: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    minHeight: 88,
   },
-  statDot: { width: 8, height: 8, borderRadius: 4 },
-  statCount: { fontSize: 18, fontWeight: '700', color: colors.text },
-  statLabel: { ...typography.caption, flex: 1 },
+  statPillEmphasized: {
+    backgroundColor: '#FEF5F5',
+    borderColor: '#F0C4C4',
+    borderWidth: 1,
+  },
+  statPillPressed: { opacity: 0.88 },
+  statPillLoading: { opacity: 0.65 },
+  statDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 2 },
+  statCount: { fontSize: 22, fontWeight: '700', color: colors.text, lineHeight: 26 },
+  statCountEmphasized: { color: colors.danger },
+  statLabel: { ...typography.caption, textAlign: 'center', fontSize: 12 },
+  statLabelEmphasized: { color: colors.danger, fontWeight: '600' },
+
+  portfolioRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  portfolioCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 96,
+    shadowColor: '#1E4470',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  portfolioCardPressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+  portfolioIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  portfolioCount: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  portfolioLabel: {
+    ...typography.caption,
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
 
   quickBar: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { prisma } from '../db.js';
 
 export async function createTimer(params: {
   userId: string;
-  machineId: string;
+  resourceId: string;
   reservationId?: string;
   remainingMinutes: number;
   notificationSettings: Record<string, boolean>;
@@ -10,8 +10,8 @@ export async function createTimer(params: {
   const expectedCompletionTime = new Date(Date.now() + params.remainingMinutes * 60000);
 
   const timer = await prisma.$transaction(async (tx) => {
-    await tx.machine.update({
-      where: { id: params.machineId },
+    await tx.resource.update({
+      where: { id: params.resourceId },
       data: { status: 'IN_USE' },
     });
 
@@ -25,12 +25,12 @@ export async function createTimer(params: {
     return tx.timer.create({
       data: {
         userId: params.userId,
-        machineId: params.machineId,
+        resourceId: params.resourceId,
         reservationId: params.reservationId,
         expectedCompletionTime,
         notificationSettings: params.notificationSettings,
       },
-      include: { machine: true },
+      include: { resource: true },
     });
   });
 
@@ -49,8 +49,8 @@ export async function completeTimer(timerId: string, userId: string) {
       data: { status: 'COMPLETED' },
     });
 
-    await tx.machine.update({
-      where: { id: timer.machineId },
+    await tx.resource.update({
+      where: { id: timer.resourceId },
       data: { status: 'CLEANING_REQUIRED' },
     });
 
@@ -60,7 +60,7 @@ export async function completeTimer(timerId: string, userId: string) {
         type: 'CYCLE_COMPLETED',
         title: 'Cycle completed',
         body: 'Your laundry cycle is finished. Please complete the cleaning checklist.',
-        data: { machineId: timer.machineId, timerId },
+        data: { resourceId: timer.resourceId, timerId },
       },
     });
 
@@ -72,7 +72,7 @@ export async function processDueTimerNotifications() {
   const now = new Date();
   const activeTimers = await prisma.timer.findMany({
     where: { status: 'ACTIVE' },
-    include: { user: true, machine: true },
+    include: { user: true, resource: true },
   });
 
   for (const timer of activeTimers) {
@@ -85,7 +85,7 @@ export async function processDueTimerNotifications() {
           userId: timer.userId,
           type: 'TIMER_ALMOST_FINISHED',
           title: 'Almost finished',
-          body: `${timer.machine.name} will finish in about 5 minutes.`,
+          body: `${timer.resource.name} will finish in about 5 minutes.`,
           data: { timerId: timer.id },
         },
       });

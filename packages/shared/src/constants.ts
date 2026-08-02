@@ -14,8 +14,15 @@ export const MACHINE_STATUSES = [
 
 export type MachineStatus = (typeof MACHINE_STATUSES)[number];
 
-export const MACHINE_TYPES = ['WASHING_MACHINE', 'TUMBLE_DRYER'] as const;
-export type MachineType = (typeof MACHINE_TYPES)[number];
+export const RESOURCE_TYPES = ['WASHING_MACHINE', 'TUMBLE_DRYER', 'DRYING_ROOM'] as const;
+export type ResourceType = (typeof RESOURCE_TYPES)[number];
+
+/** @deprecated Use RESOURCE_TYPES */
+export const MACHINE_TYPES = RESOURCE_TYPES.filter(
+  (t): t is 'WASHING_MACHINE' | 'TUMBLE_DRYER' => t !== 'DRYING_ROOM',
+);
+/** @deprecated Use ResourceType */
+export type MachineType = 'WASHING_MACHINE' | 'TUMBLE_DRYER';
 
 export const RESERVATION_STATUSES = [
   'CONFIRMED',
@@ -64,3 +71,14 @@ export const SERIOUS_DEFECT_CATEGORIES = [
   'WATER_LEAKAGE',
   'DISPLAY_ERROR',
 ] as const;
+
+export const NOTICE_CATEGORIES = [
+  'MAINTENANCE',
+  'WATER_SHUTOFF',
+  'CONSTRUCTION',
+  'GENERAL_INFO',
+  'ELEVATOR',
+  'HEATING',
+] as const;
+
+export type NoticeCategory = (typeof NOTICE_CATEGORIES)[number];

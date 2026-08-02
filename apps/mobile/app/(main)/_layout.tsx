@@ -1,80 +1,87 @@
-import { Redirect, Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/lib/auth';
+import { Redirect, Stack } from 'expo-router';
+import { useAuthGate } from '@/lib/auth';
 import { BuildingProvider } from '@/lib/building';
 import { LoadingState } from '@/components/ui';
-import { colors } from '@/lib/theme';
+import { detailScreenOptions, stackScreenOptions } from '@/lib/navigation/stackOptions';
 import { t } from '@/lib/i18n';
+import { useLocale } from '@/lib/locale';
 
 export default function MainLayout() {
-  const { token, loading } = useAuth();
+  const gate = useAuthGate();
+  const { locale } = useLocale();
 
-  if (loading) return <LoadingState />;
-  if (!token) return <Redirect href="/" />;
+  if (gate.status === 'loading') return <LoadingState />;
+  if (gate.status === 'unauthenticated') return <Redirect href="/" />;
+  if (gate.status === 'verify-email') {
+    return <Redirect href={{ pathname: '/verify-email', params: { email: gate.email } }} />;
+  }
+  if (gate.status === 'onboarding') return <Redirect href="/onboarding" />;
 
   return (
     <BuildingProvider>
-      <Tabs
-        screenOptions={{
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.surface },
-          headerShadowVisible: false,
-          headerTintColor: colors.primary,
-          headerTitleStyle: { fontWeight: '600', fontSize: 17 },
-          tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarStyle: {
-            minHeight: 56,
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-          },
-        }}
-      >
-        <Tabs.Screen
-          name="dashboard"
-          options={{
-            title: t('dashboard.title'),
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" size={size} color={color} />
-            ),
-          }}
+      <Stack key={locale} screenOptions={stackScreenOptions}>
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false, title: t('dashboard.title') }}
         />
-        <Tabs.Screen
-          name="schedule"
-          options={{
-            title: t('schedule.title'),
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar-outline" size={size} color={color} />
-            ),
-          }}
+        <Stack.Screen name="machine/[id]" options={detailScreenOptions(t('machine.title'))} />
+        <Stack.Screen name="reserve" options={detailScreenOptions(t('reserve.title'))} />
+        <Stack.Screen name="timer" options={detailScreenOptions(t('timer.title'))} />
+        <Stack.Screen name="checklist" options={detailScreenOptions(t('checklist.title'))} />
+        <Stack.Screen name="defect" options={detailScreenOptions(t('defect.title'))} />
+        <Stack.Screen name="defects" options={detailScreenOptions(t('defect.listTitle'))} />
+        <Stack.Screen name="house-rules" options={detailScreenOptions(t('houseRules.title'))} />
+        <Stack.Screen name="contact-settings" options={detailScreenOptions(t('settings.contact'))} />
+        <Stack.Screen name="company-settings" options={detailScreenOptions(t('settings.propertyManagement.company'))} />
+        <Stack.Screen
+          name="building-contact-settings"
+          options={detailScreenOptions(t('dashboard.buildingContact'))}
         />
-        <Tabs.Screen
-          name="notifications"
-          options={{
-            title: t('notifications.title'),
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="notifications-outline" size={size} color={color} />
-            ),
-          }}
+        <Stack.Screen
+          name="building-laundry-rooms"
+          options={detailScreenOptions(t('dashboard.laundryRooms'), t('buildingDetails.title'))}
         />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: t('settings.title'),
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
-            ),
-          }}
+        <Stack.Screen name="laundry-room/[id]" options={detailScreenOptions(t('laundryRooms.detailTitle'))} />
+        <Stack.Screen name="resource-edit" options={detailScreenOptions(t('resource.editTitle'))} />
+        <Stack.Screen
+          name="building-booking-rules"
+          options={detailScreenOptions(t('dashboard.bookingRules'))}
         />
-        <Tabs.Screen name="machine/[id]" options={{ href: null, title: t('machine.title') }} />
-        <Tabs.Screen name="reserve" options={{ href: null, title: t('reserve.title') }} />
-        <Tabs.Screen name="timer" options={{ href: null, title: t('timer.title') }} />
-        <Tabs.Screen name="checklist" options={{ href: null, title: t('checklist.title') }} />
-        <Tabs.Screen name="defect" options={{ href: null, title: t('defect.title') }} />
-        <Tabs.Screen name="defects" options={{ href: null, title: t('defect.listTitle') }} />
-        <Tabs.Screen name="house-rules" options={{ href: null, title: t('houseRules.title') }} />
-        <Tabs.Screen name="scan" options={{ href: null, title: t('scan.title') }} />
-      </Tabs>
+        <Stack.Screen
+          name="building-registration"
+          options={detailScreenOptions(t('registration.adminTitle'))}
+        />
+        <Stack.Screen name="building-qr-codes" options={detailScreenOptions(t('dashboard.qrCodes'))} />
+        <Stack.Screen name="office-hours" options={detailScreenOptions(t('settings.officeHours'))} />
+        <Stack.Screen name="emergency-contacts" options={detailScreenOptions(t('settings.emergency'))} />
+        <Stack.Screen name="cleaning-rules" options={detailScreenOptions(t('settings.cleaningRules'))} />
+        <Stack.Screen
+          name="cleaning-rules-editor"
+          options={detailScreenOptions(t('settings.cleaningRules'))}
+        />
+        <Stack.Screen name="scan" options={detailScreenOptions(t('scan.title'))} />
+        <Stack.Screen
+          name="create-building"
+          options={detailScreenOptions(t('dashboard.addBuilding.title'))}
+        />
+        <Stack.Screen
+          name="building-details"
+          options={detailScreenOptions(t('buildingDetails.title'), t('dashboard.title'))}
+        />
+        <Stack.Screen
+          name="building-notices"
+          options={detailScreenOptions(t('notices.adminTitle'))}
+        />
+        <Stack.Screen
+          name="building-notice-edit"
+          options={detailScreenOptions(t('notices.editTitle'))}
+        />
+        <Stack.Screen
+          name="maintenance-edit"
+          options={detailScreenOptions(t('maintenance.edit'))}
+        />
+        <Stack.Screen name="notices" options={detailScreenOptions(t('notices.sectionTitle'))} />
+      </Stack>
     </BuildingProvider>
   );
 }

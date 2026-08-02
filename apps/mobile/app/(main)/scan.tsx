@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { apiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { isJoinLink, parseJoinToken } from '@/lib/joinLinks';
 import { Button, TextField } from '@/components/ui';
 import { colors, radius, spacing } from '@/lib/theme';
 import { t } from '@/lib/i18n';
@@ -13,6 +14,17 @@ export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [manualCode, setManualCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  async function handleScan(data: string) {
+    if (isJoinLink(data)) {
+      const joinToken = parseJoinToken(data);
+      if (joinToken) {
+        router.push(`/join/${encodeURIComponent(joinToken)}`);
+        return;
+      }
+    }
+    await openMachine(data);
+  }
 
   async function openMachine(qrCodeIdentifier: string) {
     setError(null);
@@ -49,7 +61,7 @@ export default function ScanScreen() {
       <CameraView
         style={styles.camera}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={({ data }) => openMachine(data)}
+        onBarcodeScanned={({ data }) => void handleScan(data)}
       />
       <View style={styles.content}>
         <TextField

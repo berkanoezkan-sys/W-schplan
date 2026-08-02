@@ -16,7 +16,11 @@
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate --workspace=@woeschplan/api",
     "db:seed": "npm run db:seed --workspace=@woeschplan/api",
-    "db:studio": "npm run db:studio --workspace=@woeschplan/api"
+    "db:studio": "npm run db:studio --workspace=@woeschplan/api",
+    "dev:up": "./scripts/dev-up.sh",
+    "dev:down": "./scripts/dev-down.sh",
+    "dev:status": "./scripts/dev-status.sh",
+    "export:migration": "./scripts/export-for-pc-migration.sh"
   },
   "engines": {
     "node": ">=20"

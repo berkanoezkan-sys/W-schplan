@@ -54,6 +54,13 @@ export const machineStatusLabels: Record<string, string> = {
   OUT_OF_SERVICE: 'status.outOfService',
 };
 
+export const reservationStatusColors: Record<string, string> = {
+  CONFIRMED: colors.reserved,
+  COMPLETED: colors.success,
+  CANCELLED: colors.textMuted,
+  NO_SHOW: colors.danger,
+};
+
 export const machineStatusColors: Record<string, string> = {
   AVAILABLE: colors.success,
   RESERVED: colors.reserved,

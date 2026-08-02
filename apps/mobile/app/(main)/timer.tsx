@@ -21,12 +21,12 @@ const TIMER_STORAGE_KEY = 'woeschplan_active_timer';
 const DURATIONS = ['30', '45', '60', '90'] as const;
 
 export default function TimerScreen() {
-  const { machineId: paramMachineId } = useLocalSearchParams<{ machineId?: string }>();
+  const { resourceId: paramResourceId } = useLocalSearchParams<{ resourceId?: string; machineId?: string }>();
   const { token } = useAuth();
   const [minutes, setMinutes] = useState('45');
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
-  const [machineId, setMachineId] = useState(paramMachineId ?? '');
+  const [resourceId, setResourceId] = useState(paramResourceId ?? '');
 
   const { data: activeTimer, isLoading } = useQuery({
     queryKey: ['active-timer'],
@@ -34,16 +34,17 @@ export default function TimerScreen() {
     queryFn: () =>
       apiRequest<{
         id: string;
-        machineId: string;
+        resourceId: string;
         expectedCompletionTime: string;
-        machine: { name: string };
+        resource: { name: string };
+        machine?: { name: string };
       } | null>('/timers/active', { token: token! }),
   });
 
   useEffect(() => {
     if (activeTimer) {
       setActiveTimerId(activeTimer.id);
-      setMachineId(activeTimer.machineId);
+      setResourceId(activeTimer.resourceId);
       const ms = new Date(activeTimer.expectedCompletionTime).getTime() - Date.now();
       setRemainingMs(Math.max(0, ms));
       AsyncStorage.setItem(
@@ -80,7 +81,7 @@ export default function TimerScreen() {
   }, [remainingMs]);
 
   async function startTimer() {
-    if (!machineId) return;
+    if (!resourceId) return;
     const timer = await apiRequest<{
       id: string;
       expectedCompletionTime: string;
@@ -88,7 +89,7 @@ export default function TimerScreen() {
       token: token!,
       method: 'POST',
       body: JSON.stringify({
-        machineId,
+        resourceId,
         remainingMinutes: Number(minutes),
         notifyFiveMinutesBefore: true,
         notifyOnCompletion: true,
@@ -115,7 +116,7 @@ export default function TimerScreen() {
     await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
     router.push({
       pathname: '/(main)/checklist',
-      params: { machineId: machineId || activeTimer?.machineId },
+      params: { resourceId: resourceId || activeTimer?.resourceId },
     });
   }
 
@@ -133,7 +134,7 @@ export default function TimerScreen() {
         <HeroCard
           label={t('timer.remaining')}
           title={`${minutesLeft}:${String(secondsLeft).padStart(2, '0')}`}
-          subtitle={activeTimer?.machine?.name}
+          subtitle={activeTimer?.resource?.name ?? activeTimer?.machine?.name}
           accentColor={colors.accent}
         />
       </PageShell>
@@ -141,7 +142,7 @@ export default function TimerScreen() {
   }
 
   return (
-    <PageShell footer={<Button label={t('timer.start')} onPress={startTimer} variant="accent" disabled={!machineId} />}>
+    <PageShell footer={<Button label={t('timer.start')} onPress={startTimer} variant="accent" disabled={!resourceId} />}>
       <SectionLabel>{t('timer.duration')}</SectionLabel>
       <OptionPicker
         options={DURATIONS.map((d) => ({ value: d, label: `${d} ${t('timer.minutes')}` }))}
@@ -149,10 +150,10 @@ export default function TimerScreen() {
         onChange={setMinutes}
         variant="chips"
       />
-      {!paramMachineId ? (
+      {!paramResourceId ? (
         <Text style={styles.hint}>{t('defect.noMachine')}</Text>
       ) : (
-        <Caption>{machineId}</Caption>
+        <Caption>{resourceId}</Caption>
       )}
     </PageShell>
   );

@@ -30,7 +30,8 @@ export default function MachineDetailScreen() {
         machine: {
           id: string;
           name: string;
-          machineType: string;
+          resourceType: string;
+          machineType?: string;
           status: string;
           laundryRoom: { name: string };
         };
@@ -60,8 +61,13 @@ export default function MachineDetailScreen() {
 
   const { machine, reservations, defects } = data;
   const isInUse = machine.status === 'IN_USE';
+  const resourceType = machine.resourceType ?? machine.machineType;
   const machineTypeLabel =
-    machine.machineType === 'WASHING_MACHINE' ? t('machine.type.washer') : t('machine.type.dryer');
+    resourceType === 'DRYING_ROOM'
+      ? t('resource.type.dryingRoom')
+      : resourceType === 'TUMBLE_DRYER'
+        ? t('machine.type.dryer')
+        : t('machine.type.washer');
 
   return (
     <PageShell>
@@ -80,14 +86,14 @@ export default function MachineDetailScreen() {
           icon={isInUse ? 'timer-outline' : 'play-outline'}
           label={isInUse ? t('machine.viewTimer') : t('machine.startTimer')}
           onPress={() =>
-            router.push({ pathname: '/(main)/timer', params: { machineId: machine.id } })
+            router.push({ pathname: '/(main)/timer', params: { resourceId: machine.id } })
           }
         />
         <ActionRow
           icon="alert-circle-outline"
           label={t('machine.reportDefect')}
           onPress={() =>
-            router.push({ pathname: '/(main)/defect', params: { machineId: machine.id } })
+            router.push({ pathname: '/(main)/defect', params: { resourceId: machine.id } })
           }
         />
         <ActionRow
@@ -96,7 +102,7 @@ export default function MachineDetailScreen() {
           onPress={() =>
             router.push({
               pathname: '/(main)/checklist',
-              params: { machineId: machine.id, machineType: machine.machineType },
+              params: { resourceId: machine.id, resourceType },
             })
           }
         />

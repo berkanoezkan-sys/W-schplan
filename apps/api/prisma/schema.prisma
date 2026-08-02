@@ -12,9 +12,56 @@ enum UserRole {
   ADMINISTRATOR
 }
 
-enum MachineType {
+enum PlatformRole {
+  PROPERTY_ADMIN
+  SUPER_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  SUSPENDED
+}
+
+enum OrganisationStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum OnboardingStatus {
+  PENDING_EMAIL_VERIFICATION
+  COMPANY_PROFILE
+  FIRST_BUILDING
+  LAUNDRY_SETUP
+  RESIDENT_INVITATION
+  COMPLETED
+}
+
+enum OrganisationMembershipRole {
+  OWNER
+  PROPERTY_ADMIN
+  ADMIN
+}
+
+enum OrganisationMembershipStatus {
+  ACTIVE
+  INVITED
+  REVOKED
+}
+
+enum OrganisationInvitationStatus {
+  INVITED
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ResourceType {
   WASHING_MACHINE
   TUMBLE_DRYER
+  DRYING_ROOM
 }
 
 enum MachineStatus {
@@ -91,6 +138,46 @@ enum NotificationType {
   DEFECT_AFFECTING_RESERVATION
   DEFECT_STATUS_UPDATED
   MACHINE_AVAILABLE
+  BUILDING_NOTICE
+  MAINTENANCE_ENTRY
+}
+
+enum MaintenanceType {
+  MAINTENANCE
+  REPAIR
+  INSPECTION
+  SERVICE
+  CLEANING
+  OTHER
+}
+
+enum MaintenanceStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceRecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum MaintenanceSeriesScope {
+  THIS_OCCURRENCE
+  THIS_AND_FUTURE
+  ENTIRE_SERIES
+}
+
+enum NoticeCategory {
+  MAINTENANCE
+  WATER_SHUTOFF
+  CONSTRUCTION
+  GENERAL_INFO
+  ELEVATOR
+  HEATING
 }
 
 model User {
@@ -100,9 +187,18 @@ model User {
   firstName        String
   lastName         String
   apartmentNumber  String?
+  phone            String?
+  organisationId   String?
+  platformRole     PlatformRole?
+  emailVerifiedAt  DateTime?
+  status           UserStatus @default(ACTIVE)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  organisation     Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  ownedOrganisation Organisation? @relation("OrganisationOwner")
+  organisationMemberships OrganisationMembership[]
+  sentOrganisationInvitations OrganisationInvitation[] @relation("InvitationSender")
   memberships      BuildingMembership[]
   reservations     Reservation[]
   timers           Timer[]
@@ -111,12 +207,96 @@ model User {
   checklistCompletions ChecklistCompletion[]
   notifications    Notification[]
   notificationPrefs NotificationPreference?
+  preferredBuildingId String?
+  administratorSettings Json?
+  createdRegistrations BuildingRegistration[] @relation("RegistrationCreator")
+  residentRegistrations ResidentRegistration[]
+  emailVerificationTokens EmailVerificationToken[]
+  createdNotices       BuildingNotice[] @relation("NoticeCreator")
+  noticeAcknowledgments BuildingNoticeAcknowledgment[]
+  createdMaintenanceEntries MaintenanceEntry[] @relation("MaintenanceCreator")
+}
+
+model Organisation {
+  id               String             @id @default(uuid())
+  name             String
+  website          String?
+  phone            String?
+  email            String
+  status           OrganisationStatus @default(PENDING)
+  onboardingStatus OnboardingStatus   @default(PENDING_EMAIL_VERIFICATION)
+  onboardingData   Json?
+  ownerId          String?            @unique
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  owner            User?              @relation("OrganisationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members          OrganisationMembership[]
+  buildings        Building[]
+  invitations      OrganisationInvitation[]
+  users            User[]
+}
+
+model OrganisationMembership {
+  id             String                     @id @default(uuid())
+  organisationId String
+  userId         String
+  role           OrganisationMembershipRole @default(PROPERTY_ADMIN)
+  status         OrganisationMembershipStatus @default(ACTIVE)
+  invitedById    String?
+  joinedAt       DateTime?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+}
+
+model OrganisationInvitation {
+  id             String                       @id @default(uuid())
+  organisationId String
+  email          String
+  role           OrganisationMembershipRole   @default(PROPERTY_ADMIN)
+  tokenHash      String
+  status         OrganisationInvitationStatus @default(INVITED)
+  invitedById    String
+  expiresAt      DateTime
+  createdAt      DateTime                     @default(now())
+  revokedAt      DateTime?
+
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  invitedBy      User         @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([organisationId, email])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
 }
 
 model Building {
   id               String   @id @default(uuid())
+  organisationId   String?
   name             String
   address          String
+  street           String?
+  postalCode       String?
+  city             String?
+  country          String?  @default("CH")
   timezone         String   @default("Europe/Zurich")
   language         String   @default("de")
   privacyLabelMode PrivacyLabelMode @default(FIRST_NAME)
@@ -125,8 +305,71 @@ model Building {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  organisation     Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
   memberships      BuildingMembership[]
   laundryRooms     LaundryRoom[]
+  checklistTemplates ChecklistTemplate[]
+  registration      BuildingRegistration?
+  residentRegistrations ResidentRegistration[]
+  notices           BuildingNotice[]
+  maintenanceEntries MaintenanceEntry[]
+
+  @@index([organisationId])
+}
+
+model BuildingNotice {
+  id             String         @id @default(uuid())
+  buildingId     String
+  title          String
+  body           String
+  category       NoticeCategory
+  severity       Severity       @default(MEDIUM)
+  icon           String
+  attachmentUrl  String?
+  attachments    Json?
+  startTime      DateTime
+  endTime        DateTime
+  affectsLaundry Boolean        @default(false)
+  showOnLogin    Boolean        @default(true)
+  sendPushNotification Boolean  @default(false)
+  pushNotificationSentAt DateTime?
+  archivedAt     DateTime?
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  building       Building       @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  createdBy      User           @relation("NoticeCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  acknowledgments BuildingNoticeAcknowledgment[]
+
+  @@index([buildingId, startTime, endTime])
+  @@index([buildingId, archivedAt])
+}
+
+model BuildingNoticeAcknowledgment {
+  id             String   @id @default(uuid())
+  noticeId       String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+
+  notice         BuildingNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noticeId, userId])
+  @@index([userId])
+}
+
+model ChecklistTemplate {
+  id             String        @id @default(uuid())
+  buildingId     String
+  checklistType  ChecklistType
+  items          Json
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  building       Building      @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([buildingId, checklistType])
 }
 
 model BuildingMembership {
@@ -155,24 +398,24 @@ model LaundryRoom {
   updatedAt    DateTime @updatedAt
 
   building     Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  machines     Machine[]
+  resources    Resource[]
 }
 
-model Machine {
-  id                            String        @id @default(uuid())
+model Resource {
+  id                            String         @id @default(uuid())
   laundryRoomId                 String
   name                          String
-  machineType                   MachineType
+  resourceType                  ResourceType
   model                         String?
-  status                        MachineStatus @default(AVAILABLE)
-  estimatedDefaultRuntime       Int           @default(90)
-  qrCodeIdentifier              String        @unique @default(uuid())
+  status                        MachineStatus  @default(AVAILABLE)
+  estimatedDefaultRuntime       Int            @default(90)
+  qrCodeIdentifier              String         @unique @default(uuid())
   cleaningChecklistConfiguration Json?
-  isActive                      Boolean       @default(true)
-  createdAt                     DateTime      @default(now())
-  updatedAt                     DateTime      @updatedAt
+  isActive                      Boolean        @default(true)
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @updatedAt
 
-  laundryRoom                   LaundryRoom   @relation(fields: [laundryRoomId], references: [id], onDelete: Cascade)
+  laundryRoom                   LaundryRoom    @relation(fields: [laundryRoomId], references: [id], onDelete: Cascade)
   reservations                  Reservation[]
   timers                        Timer[]
   defectReports                 DefectReport[]
@@ -182,7 +425,7 @@ model Machine {
 model Reservation {
   id             String            @id @default(uuid())
   userId         String
-  machineId      String
+  resourceId     String
   startTime      DateTime
   endTime        DateTime
   status         ReservationStatus @default(CONFIRMED)
@@ -191,17 +434,17 @@ model Reservation {
   updatedAt      DateTime          @updatedAt
 
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  machine        Machine           @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  resource       Resource          @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   timer          Timer?
   checklistCompletions ChecklistCompletion[]
 
-  @@index([machineId, startTime, endTime])
+  @@index([resourceId, startTime, endTime])
 }
 
 model Timer {
   id                      String      @id @default(uuid())
   reservationId           String?     @unique
-  machineId               String
+  resourceId              String
   userId                  String
   startedAt               DateTime    @default(now())
   expectedCompletionTime  DateTime
@@ -211,13 +454,13 @@ model Timer {
   updatedAt               DateTime    @updatedAt
 
   reservation             Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
-  machine                 Machine      @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  resource                Resource     @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DefectReport {
   id                      String         @id @default(uuid())
-  machineId               String
+  resourceId              String
   reportedById            String
   category                DefectCategory
   description             String
@@ -230,21 +473,21 @@ model DefectReport {
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 
-  machine                 Machine        @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  resource                Resource       @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   reportedBy              User           @relation("ReportedDefects", fields: [reportedById], references: [id], onDelete: Cascade)
   resolvedBy              User?          @relation("ResolvedDefects", fields: [resolvedById], references: [id], onDelete: SetNull)
 }
 
 model ChecklistCompletion {
   id             String        @id @default(uuid())
-  machineId      String
+  resourceId     String
   reservationId  String?
   userId         String
   checklistType  ChecklistType
   completedItems Json
   completedAt    DateTime      @default(now())
 
-  machine        Machine       @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  resource       Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   reservation    Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -276,4 +519,70 @@ model NotificationPreference {
   machineAvailable                  Boolean @default(true)
 
   user                            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceEntry {
+  id                   String                     @id @default(uuid())
+  buildingId           String
+  seriesId             String
+  title                String
+  description          String?
+  type                 MaintenanceType
+  status               MaintenanceStatus          @default(PLANNED)
+  occurrenceDate       DateTime                   @db.Date
+  endDate              DateTime?                  @db.Date
+  startTimeMinutes     Int
+  endTimeMinutes       Int
+  isRecurring          Boolean                    @default(false)
+  recurrenceType       MaintenanceRecurrenceType?
+  recurrenceInterval   Int?
+  recurrenceDays       Json?
+  recurrenceEndDate    DateTime?                  @db.Date
+  notifyResidents      Boolean                    @default(false)
+  notificationSentAt   DateTime?
+  location             String?
+  affectedAreaIds      Json                       @default("[]")
+  affectedMachineIds   Json                       @default("[]")
+  createdById          String
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  building             Building                   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  createdBy            User                       @relation("MaintenanceCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, occurrenceDate])
+  @@index([seriesId, occurrenceDate])
+}
+
+model BuildingRegistration {
+  id                      String   @id @default(uuid())
+  buildingId              String   @unique
+  tokenHash               String
+  selfRegistrationEnabled Boolean  @default(true)
+  createdById             String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  lastRegeneratedAt       DateTime @default(now())
+  totalRegistrations      Int      @default(0)
+
+  building  Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  creator   User     @relation("RegistrationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  events    ResidentRegistration[]
+
+  @@index([tokenHash])
+}
+
+model ResidentRegistration {
+  id             String   @id @default(uuid())
+  buildingId     String
+  userId         String
+  registrationId String
+  registeredAt   DateTime @default(now())
+
+  building       Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registration   BuildingRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, registeredAt])
+  @@index([userId])
 }

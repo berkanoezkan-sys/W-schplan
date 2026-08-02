@@ -3,15 +3,15 @@ import {
   completeChecklistSchema,
   createDefectSchema,
   createTimerSchema,
-  getChecklistForMachineType,
 } from '@woeschplan/shared';
 import {
   authMiddleware,
-  getMachineBuildingId,
+  getResourceBuildingId,
   requireBuildingAccess,
   type AppVariables,
 } from '../middleware/auth.js';
 import { prisma } from '../db.js';
+import { getChecklistForResource } from '../services/building-settings.js';
 import { createDefectReport, markAdministrationNotified, resolveDefect } from '../services/defects.js';
 import { completeTimer, createTimer } from '../services/timers.js';
 
@@ -21,12 +21,12 @@ featureRoutes.use('*', authMiddleware);
 featureRoutes.post('/timers', async (c) => {
   const userId = c.get('userId');
   const body = createTimerSchema.parse(await c.req.json());
-  const { buildingId } = await getMachineBuildingId(body.machineId);
+  const { buildingId } = await getResourceBuildingId(body.resourceId);
   await requireBuildingAccess(userId, buildingId);
 
   const timer = await createTimer({
     userId,
-    machineId: body.machineId,
+    resourceId: body.resourceId,
     reservationId: body.reservationId,
     remainingMinutes: body.remainingMinutes,
     notificationSettings: {
@@ -43,7 +43,7 @@ featureRoutes.get('/timers/active', async (c) => {
   const userId = c.get('userId');
   const timer = await prisma.timer.findFirst({
     where: { userId, status: 'ACTIVE' },
-    include: { machine: { include: { laundryRoom: true } } },
+    include: { resource: { include: { laundryRoom: true } } },
   });
   return c.json(timer);
 });
@@ -59,35 +59,46 @@ featureRoutes.post('/timers/:timerId/complete', async (c) => {
   }
 });
 
-featureRoutes.get('/machines/:machineId/checklist', async (c) => {
+featureRoutes.get('/resources/:resourceId/checklist', async (c) => {
   const userId = c.get('userId');
-  const machineId = c.req.param('machineId');
-  const { machine, buildingId } = await getMachineBuildingId(machineId);
+  const resourceId = c.req.param('resourceId');
+  const { resource, buildingId } = await getResourceBuildingId(resourceId);
   await requireBuildingAccess(userId, buildingId);
 
-  const checklist = getChecklistForMachineType(machine.machineType);
-  return c.json({ machineType: machine.machineType, ...checklist });
+  const checklist = await getChecklistForResource(resourceId);
+  return c.json({ resourceType: resource.resourceType, machineType: resource.resourceType, ...checklist });
+});
+
+/** @deprecated Use /resources/:resourceId/checklist */
+featureRoutes.get('/machines/:machineId/checklist', async (c) => {
+  const userId = c.get('userId');
+  const resourceId = c.req.param('machineId');
+  const { resource, buildingId } = await getResourceBuildingId(resourceId);
+  await requireBuildingAccess(userId, buildingId);
+
+  const checklist = await getChecklistForResource(resourceId);
+  return c.json({ resourceType: resource.resourceType, machineType: resource.resourceType, ...checklist });
 });
 
 featureRoutes.post('/checklists/complete', async (c) => {
   const userId = c.get('userId');
   const body = completeChecklistSchema.parse(await c.req.json());
-  const { buildingId } = await getMachineBuildingId(body.machineId);
+  const { buildingId } = await getResourceBuildingId(body.resourceId);
   await requireBuildingAccess(userId, buildingId);
 
   const completion = await prisma.$transaction(async (tx) => {
     const record = await tx.checklistCompletion.create({
       data: {
         userId,
-        machineId: body.machineId,
+        resourceId: body.resourceId,
         reservationId: body.reservationId,
         checklistType: body.checklistType,
         completedItems: body.completedItems,
       },
     });
 
-    await tx.machine.update({
-      where: { id: body.machineId },
+    await tx.resource.update({
+      where: { id: body.resourceId },
       data: { status: 'AVAILABLE' },
     });
 
@@ -100,12 +111,12 @@ featureRoutes.post('/checklists/complete', async (c) => {
 featureRoutes.post('/defects', async (c) => {
   const userId = c.get('userId');
   const body = createDefectSchema.parse(await c.req.json());
-  const { buildingId } = await getMachineBuildingId(body.machineId);
+  const { buildingId } = await getResourceBuildingId(body.resourceId);
   await requireBuildingAccess(userId, buildingId);
 
   const report = await createDefectReport({
     userId,
-    machineId: body.machineId,
+    resourceId: body.resourceId,
     category: body.category,
     description: body.description,
     severity: body.severity,
@@ -121,8 +132,8 @@ featureRoutes.get('/buildings/:buildingId/defects', async (c) => {
   await requireBuildingAccess(userId, buildingId);
 
   const defects = await prisma.defectReport.findMany({
-    where: { machine: { laundryRoom: { buildingId } } },
-    include: { machine: { include: { laundryRoom: true } }, reportedBy: true },
+    where: { resource: { laundryRoom: { buildingId } } },
+    include: { resource: { include: { laundryRoom: true } }, reportedBy: true },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -146,11 +157,11 @@ featureRoutes.post('/defects/:defectId/resolve', async (c) => {
 
   const defect = await prisma.defectReport.findUnique({
     where: { id: defectId },
-    include: { machine: { include: { laundryRoom: true } } },
+    include: { resource: { include: { laundryRoom: true } } },
   });
   if (!defect) return c.json({ error: 'Not found' }, 404);
 
-  await requireBuildingAccess(userId, defect.machine.laundryRoom.buildingId, true);
+  await requireBuildingAccess(userId, defect.resource.laundryRoom.buildingId, true);
 
   const updated = await resolveDefect(defectId, userId);
   return c.json(updated);
@@ -182,7 +193,8 @@ featureRoutes.get('/buildings/:buildingId/house-rules', async (c) => {
   const buildingId = c.req.param('buildingId');
   await requireBuildingAccess(userId, buildingId);
 
-  const building = await prisma.building.findUnique({ where: { id: buildingId } });
-  if (!building) return c.json({ error: 'Not found' }, 404);
-  return c.json(building.houseRules ?? {});
+  const { getBuildingSettings } = await import('../services/building-settings.js');
+  const settings = await getBuildingSettings(buildingId);
+  if (!settings) return c.json({ error: 'Not found' }, 404);
+  return c.json(settings.houseRules);
 });

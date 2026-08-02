@@ -18,27 +18,34 @@ import { colors, spacing, typography } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
 export default function ChecklistScreen() {
-  const { machineId, machineType } = useLocalSearchParams<{
+  const { resourceId, machineId, resourceType, machineType } = useLocalSearchParams<{
+    resourceId?: string;
     machineId?: string;
+    resourceType?: string;
     machineType?: string;
   }>();
   const { token } = useAuth();
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  const resolvedMachineId = machineId ?? '';
+  const resolvedResourceId = resourceId ?? machineId ?? '';
   const { data, isLoading } = useQuery({
-    queryKey: ['checklist', resolvedMachineId],
-    enabled: !!token && !!resolvedMachineId,
+    queryKey: ['checklist', resolvedResourceId],
+    enabled: !!token && !!resolvedResourceId,
     queryFn: () =>
       apiRequest<{
-        machineType: 'WASHING_MACHINE' | 'TUMBLE_DRYER';
-        items: Array<{ id: string; labelKey: string; mandatory: boolean }>;
-        maintenance: Array<{ id: string; labelKey: string; mandatory: boolean }>;
-      }>(`/machines/${resolvedMachineId}/checklist`, { token: token! }),
+        resourceType: 'WASHING_MACHINE' | 'TUMBLE_DRYER';
+        machineType?: 'WASHING_MACHINE' | 'TUMBLE_DRYER';
+        items: Array<{ id: string; label: string; labelKey?: string; mandatory: boolean }>;
+        maintenance: Array<{ id: string; label: string; labelKey?: string; mandatory: boolean }>;
+      }>(`/machines/${resolvedResourceId}/checklist`, { token: token! }),
   });
 
-  const type = (machineType as 'WASHING_MACHINE' | 'TUMBLE_DRYER') ?? data?.machineType;
+  const type =
+    (resourceType as 'WASHING_MACHINE' | 'TUMBLE_DRYER') ??
+    (machineType as 'WASHING_MACHINE' | 'TUMBLE_DRYER') ??
+    data?.resourceType ??
+    data?.machineType;
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -50,14 +57,14 @@ export default function ChecklistScreen() {
   }
 
   async function confirm() {
-    if (!resolvedMachineId || !type) return;
+    if (!resolvedResourceId || !type) return;
     setSubmitting(true);
     try {
       await apiRequest('/checklists/complete', {
         token: token!,
         method: 'POST',
         body: JSON.stringify({
-          machineId: resolvedMachineId,
+          resourceId: resolvedResourceId,
           checklistType: type,
           completedItems: Array.from(checked),
         }),
@@ -68,7 +75,7 @@ export default function ChecklistScreen() {
     }
   }
 
-  if (!resolvedMachineId) {
+  if (!resolvedResourceId) {
     return (
       <PageShell>
         <EmptyState message={t('checklist.noMachine')} />
@@ -96,7 +103,7 @@ export default function ChecklistScreen() {
       {data.items.map((item) => (
         <ChecklistRow
           key={item.id}
-          label={t(item.labelKey)}
+          label={item.label ?? (item.labelKey ? t(item.labelKey) : '')}
           checked={checked.has(item.id)}
           onToggle={() => toggle(item.id)}
           mandatory={item.mandatory}
@@ -108,7 +115,7 @@ export default function ChecklistScreen() {
           <SectionLabel>{t('checklist.maintenance')}</SectionLabel>
           {data.maintenance.map((item) => (
             <Card key={item.id}>
-              <Caption>{t(item.labelKey)}</Caption>
+              <Caption>{item.label ?? (item.labelKey ? t(item.labelKey) : '')}</Caption>
             </Card>
           ))}
         </>

@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import { verifyToken } from '../auth.js';
 import { prisma } from '../db.js';
+import { requireOrganisationBuildingAccess } from './organisation.js';
 
 export type AppVariables = {
   userId: string;
@@ -28,30 +29,29 @@ export async function requireBuildingAccess(
   buildingId: string,
   adminOnly = false,
 ) {
-  const membership = await prisma.buildingMembership.findUnique({
-    where: { userId_buildingId: { userId, buildingId } },
-  });
-
-  if (!membership) {
-    throw new Error('FORBIDDEN');
-  }
-
-  if (adminOnly && membership.role !== 'ADMINISTRATOR') {
-    throw new Error('FORBIDDEN');
-  }
-
-  return membership;
+  return requireOrganisationBuildingAccess(userId, buildingId, adminOnly);
 }
 
-export async function getMachineBuildingId(machineId: string) {
-  const machine = await prisma.machine.findUnique({
-    where: { id: machineId },
+export async function getResourceBuildingId(resourceId: string) {
+  const resource = await prisma.resource.findUnique({
+    where: { id: resourceId },
     include: { laundryRoom: true },
   });
 
-  if (!machine) {
+  if (!resource) {
     throw new Error('NOT_FOUND');
   }
 
-  return { machine, buildingId: machine.laundryRoom.buildingId };
+  return { resource, buildingId: resource.laundryRoom.buildingId };
+}
+
+/** @deprecated Use getResourceBuildingId */
+export async function getMachineBuildingId(machineId: string) {
+  return getResourceBuildingId(machineId);
+}
+
+export async function getLaundryRoomBuildingId(laundryRoomId: string) {
+  const room = await prisma.laundryRoom.findUnique({ where: { id: laundryRoomId } });
+  if (!room) throw new Error('NOT_FOUND');
+  return { room, buildingId: room.buildingId };
 }

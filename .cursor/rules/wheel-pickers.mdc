@@ -1,0 +1,37 @@
+---
+description: Always use shared native wheel picker components — never roll custom ScrollView wheels on iOS
+globs: apps/mobile/**/*
+alwaysApply: false
+---
+
+# Wheel pickers (mandatory)
+
+All wheel-style pickers in the mobile app **must** use the shared components in `@/components/settings`.
+
+## Use these
+
+| Need | Component | Import |
+|------|-----------|--------|
+| List of options (duration, enum, etc.) | `WheelPicker` | `@/components/settings` |
+| Time / date spinner | `IosWheelDateTimePicker` | `@/components/settings` |
+| Time range bottom sheet | `TimeRangePickerSheet` | `@/components/settings` |
+| Duration bottom sheet | `DurationPickerSheet` | `@/components/settings` |
+| Styling tokens | `wheelPickerTheme`, `nativeWheelPickerProps` | `@/lib/wheelPickerTheme` |
+| Selection haptic | `triggerWheelSelectionHaptic` | `@/lib/wheelPickerHaptics` |
+
+## Never use directly in feature code
+
+- `@react-native-picker/picker` — only inside `WheelPicker.tsx`
+- `@react-native-community/datetimepicker` — only inside `IosWheelDateTimePicker.tsx`
+- Custom `ScrollView` wheels on iOS/Android (web fallback lives inside `WheelPicker.tsx` only)
+
+## Why
+
+Native `UIPickerView` / `UIDatePicker` provide momentum scrolling, natural deceleration, and snap-on-settle — matching Apple HIG. Custom ScrollView pickers stop abruptly and caused infinite-update bugs.
+
+## Adding a new wheel picker
+
+1. Build options as `WheelPickerOption<T>[]`
+2. Render `<WheelPicker options={...} value={...} onChange={...} />`
+3. For times, use `<IosWheelDateTimePicker mode="time" ... />` or `TimeRangePickerSheet`
+4. Do not duplicate picker UI in screen files

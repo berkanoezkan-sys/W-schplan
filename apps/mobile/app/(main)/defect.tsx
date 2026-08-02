@@ -7,7 +7,8 @@ import { Button, EmptyState, OptionPicker, PageShell, TextField } from '@/compon
 import { t } from '@/lib/i18n';
 
 export default function DefectReportScreen() {
-  const { machineId } = useLocalSearchParams<{ machineId?: string }>();
+  const { resourceId, machineId } = useLocalSearchParams<{ resourceId?: string; machineId?: string }>();
+  const resolvedResourceId = resourceId ?? machineId ?? '';
   const { token } = useAuth();
   const [category, setCategory] = useState<string>(DEFECT_CATEGORIES[0]);
   const [severity, setSeverity] = useState<string>('MEDIUM');
@@ -16,14 +17,14 @@ export default function DefectReportScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (!machineId) return;
+    if (!resolvedResourceId) return;
     setLoading(true);
     setError(null);
     try {
       await apiRequest('/defects', {
         token: token!,
         method: 'POST',
-        body: JSON.stringify({ machineId, category, severity, description }),
+        body: JSON.stringify({ resourceId: resolvedResourceId, category, severity, description }),
       });
       router.back();
     } catch (e) {
@@ -33,7 +34,7 @@ export default function DefectReportScreen() {
     }
   }
 
-  if (!machineId) {
+  if (!resolvedResourceId) {
     return (
       <PageShell>
         <EmptyState message={t('defect.noMachine')} />

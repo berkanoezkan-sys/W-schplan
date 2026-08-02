@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { router } from 'expo-router';
-import { apiRequest } from '@/lib/api';
+import { router, useLocalSearchParams } from 'expo-router';
+import { apiRequest, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBuilding } from '@/lib/building';
 import { Button, OptionPicker, PageShell, SectionLabel } from '@/components/ui';
@@ -27,18 +27,19 @@ function presetToDate(preset: TimePreset): Date {
 }
 
 export default function ReserveScreen() {
+  const { resourceId: paramResourceId } = useLocalSearchParams<{ resourceId?: string }>();
   const { token } = useAuth();
   const { building, buildingId } = useBuilding();
-  const [machineId, setMachineId] = useState('');
+  const [resourceId, setResourceId] = useState(paramResourceId ?? '');
   const [timePreset, setTimePreset] = useState<TimePreset>('nextHour');
   const [durationMinutes, setDurationMinutes] = useState<string>('90');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const machines = useMemo(
+  const resources = useMemo(
     () =>
       building?.laundryRooms.flatMap((room) =>
-        room.machines.map((m) => ({ ...m, roomName: room.name })),
+        room.resources.map((r) => ({ ...r, roomName: room.name })),
       ) ?? [],
     [building],
   );
@@ -65,7 +66,7 @@ export default function ReserveScreen() {
   }));
 
   async function submit() {
-    if (!buildingId || !machineId) return;
+    if (!buildingId || !resourceId) return;
     setLoading(true);
     setError(null);
     try {
@@ -75,14 +76,24 @@ export default function ReserveScreen() {
         token: token!,
         method: 'POST',
         body: JSON.stringify({
-          machineId,
+          resourceId,
           startTime: start.toISOString(),
           endTime: end.toISOString(),
         }),
       });
       router.back();
     } catch (e) {
-      setError((e as Error).message);
+      if (e instanceof ApiError) {
+        if (e.code === 'QUIET_HOURS_CONFLICT') {
+          setError(t('reserve.error.quietHours'));
+        } else if (e.code === 'OVERLAP' || e.status === 409) {
+          setError(t('reserve.error.overlap'));
+        } else {
+          setError(e.message);
+        }
+      } else {
+        setError((e as Error).message ?? t('common.error'));
+      }
     } finally {
       setLoading(false);
     }
@@ -95,20 +106,20 @@ export default function ReserveScreen() {
           label={t('reserve.submit')}
           onPress={submit}
           loading={loading}
-          disabled={!machineId}
+          disabled={!resourceId}
           variant="accent"
         />
       }
     >
       <OptionPicker
         label={t('reserve.selectMachine')}
-        options={machines.map((m) => ({
-          value: m.id,
-          label: m.name,
-          subtitle: m.roomName,
+        options={resources.map((r) => ({
+          value: r.id,
+          label: r.name,
+          subtitle: r.roomName,
         }))}
-        value={machineId}
-        onChange={setMachineId}
+        value={resourceId}
+        onChange={setResourceId}
       />
 
       <OptionPicker
