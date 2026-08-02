@@ -1,0 +1,32 @@
+---
+description: PC without Docker/VT-x — use Neon Postgres and pc:start-no-docker
+alwaysApply: true
+---
+
+# PC ohne Docker (Berkan, MEDION Desktop)
+
+Virtualization/BIOS VT-x is NOT available. Do NOT use Docker or docker compose.
+
+## When user asks to start, run, or fix Woeschplan
+
+1. Check `apps/api/.env` for `DATABASE_URL`:
+   - If missing or still `woeschplan:woeschplan@localhost` → guide user to Neon (https://neon.tech) OR set if they paste a connection string.
+2. Run in PowerShell from repo root:
+   - `npm.cmd run pc:start-no-docker`
+3. If restore needed first: `npm.cmd run pc:desktop-no-docker` for desktop shortcut.
+4. Never require Docker Desktop or BIOS changes.
+
+## Neon setup (if user has no DATABASE_URL)
+
+1. neon.tech → free account → project `woeschplan`
+2. Copy connection string into `apps/api/.env` as `DATABASE_URL="..."` (include `?sslmode=require`)
+3. Then `npm.cmd run db:migrate` and `npm.cmd run db:seed` if not already done
+
+## Phone testing
+
+Update `apps/mobile/.env` `EXPO_PUBLIC_API_URL` to PC LAN IP from `ipconfig`.
+
+## Demo login
+
+- admin@woeschplan.local / admin12345
+- resident@woeschplan.local / resident12345

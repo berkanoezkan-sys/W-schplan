@@ -1,4 +1,4 @@
-# Wöschplan — first-time setup on Windows (PowerShell)
+# Woeschplan - first-time setup on Windows (PowerShell)
 # Run from repo root: .\scripts\pc-setup.ps1
 $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Parent

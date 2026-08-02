@@ -1,31 +1,66 @@
-# Restore Wöschplan on a new PC from iCloud migration backup.
+# Restore Woeschplan on a new PC from iCloud migration backup.
 # Usage: .\scripts\pc-restore-from-backup.ps1
 $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $MyInvocation.MyCommand.Path -Parent) -Parent
 Set-Location $Root
 $Marker = Join-Path $Root ".cursor\pc-restore-complete"
 
-function Find-Backup {
-    if ($env:WOESCHPLAN_BACKUP_DIR -and (Test-Path $env:WOESCHPLAN_BACKUP_DIR)) {
-        return $env:WOESCHPLAN_BACKUP_DIR
+function Get-NpmCmd {
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($npm) { return $npm.Source }
+    return "npm.cmd"
+}
+
+function Test-BackupRoot($Path) {
+    return Test-Path (Join-Path $Path "backup\env")
+}
+
+function Resolve-BackupRoot($Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    if (Test-BackupRoot $Path) { return $Path }
+
+    $latest = Join-Path $Path "latest"
+    if (Test-Path $latest) {
+        $resolved = Resolve-BackupRoot $latest
+        if ($resolved) { return $resolved }
     }
+
+    $newest = Get-ChildItem $Path -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-BackupRoot $_.FullName } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+    if ($newest) { return $newest.FullName }
+
+    return $null
+}
+
+function Find-Backup {
+    if ($env:WOESCHPLAN_BACKUP_DIR) {
+        $resolved = Resolve-BackupRoot $env:WOESCHPLAN_BACKUP_DIR
+        if ($resolved) { return $resolved }
+    }
+
     $user = $env:USERNAME
     $candidates = @(
+        "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup",
         "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest",
-        "$env:USERPROFILE\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest",
+        "C:\Users\$user\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup",
         "C:\Users\$user\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup\latest"
     )
     foreach ($dir in $candidates) {
-        if (Test-Path $dir) { return $dir }
+        $resolved = Resolve-BackupRoot $dir
+        if ($resolved) { return $resolved }
     }
     return $null
 }
 
-Write-Host "→ Wöschplan PC restore" -ForegroundColor Cyan
+$Npm = Get-NpmCmd
+
+Write-Host "-> Woeschplan PC restore" -ForegroundColor Cyan
 $Backup = Find-Backup
 if (-not $Backup) {
     Write-Host "Backup not found. Wait for iCloud sync, then run:" -ForegroundColor Yellow
-    Write-Host '  $env:WOESCHPLAN_BACKUP_DIR = "C:\path\to\Woeschplan-Migration-Backup\latest"'
+    Write-Host '  $env:WOESCHPLAN_BACKUP_DIR = "C:\Users\moezkan\iCloudDrive\Berkans Dokumente\Woeschplan-Migration-Backup"'
     exit 1
 }
 Write-Host "  Backup: $Backup"
@@ -38,27 +73,31 @@ $chatExport = Join-Path $Backup "woeschplan-cursor-chats.cursor-chat.json"
 
 if (Test-Path $apiEnv) {
     Copy-Item $apiEnv (Join-Path $Root "apps\api\.env") -Force
-    Write-Host "  ✓ apps/api/.env restored"
+    Write-Host "  [ok] apps/api/.env restored"
 }
 if (Test-Path $mobileEnv) {
     Copy-Item $mobileEnv (Join-Path $Root "apps\mobile\.env") -Force
-    Write-Host "  ✓ apps/mobile/.env restored (update LAN IP with ipconfig)"
+    Write-Host "  [ok] apps/mobile/.env restored (update LAN IP with ipconfig)"
 }
 if (Test-Path $chatExport) {
     Copy-Item $chatExport (Join-Path $Root ".cursor\woeschplan-cursor-chats.cursor-chat.json") -Force
-    Write-Host "  ✓ Chat export copied to .cursor/"
+    Write-Host "  [ok] Chat export copied to .cursor/"
 }
 
-Write-Host "→ npm install"
-npm install
+Write-Host "-> npm install"
+& $Npm install
 
-Write-Host "→ Docker Postgres"
-docker compose up -d
-Start-Sleep -Seconds 5
-
-Write-Host "→ Database migrate + seed"
-npm run db:migrate
-npm run db:seed
+if ($env:WOESCHPLAN_NO_DOCKER -eq "1") {
+    Write-Host "-> Skipping Docker (WOESCHPLAN_NO_DOCKER=1)"
+    Write-Host "   Set DATABASE_URL in apps/api/.env — see docs/OHNE-DOCKER.md"
+} else {
+    Write-Host "-> Docker Postgres"
+    docker compose up -d
+    Start-Sleep -Seconds 5
+    Write-Host "-> Database migrate + seed"
+    & $Npm run db:migrate
+    & $Npm run db:seed
+}
 
 @(
     "restoredAt=$(Get-Date -Format o)",
@@ -66,6 +105,6 @@ npm run db:seed
 ) | Set-Content $Marker
 
 Write-Host ""
-Write-Host "✓ PC restore complete" -ForegroundColor Green
+Write-Host "[ok] PC restore complete" -ForegroundColor Green
 Write-Host "  Dev start: npm run dev:up"
-Write-Host "  Chat import: Cursor Chat Transfer → .cursor\woeschplan-cursor-chats.cursor-chat.json"
+Write-Host '  Chat import: Cursor Chat Transfer -> .cursor\woeschplan-cursor-chats.cursor-chat.json'

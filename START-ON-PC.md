@@ -12,13 +12,25 @@ Der Agent liest `.cursor/rules/pc-first-start.mdc` und führt automatisch aus:
 4. Dev-Stack starten
 5. Chat-Import anleiten
 
-Manuell:
+## Desktop-Verknüpfung (einmalig)
 
 ```powershell
-git clone https://github.com/berkanoezkan-sys/W-schplan.git Woeschplan
-cd Woeschplan
-npm run pc:restore
-npm run dev:up
+cd "$env:USERPROFILE\Woeschplan"
+git pull
+npm.cmd run pc:desktop
 ```
+
+Danach auf dem Desktop **「Woeschplan starten」** doppelklicken — startet alles automatisch (Docker vorher öffnen).
+
+## Ein Klick im Repo
+
+Doppelklick auf **`pc-start.bat`** im Repo-Root — oder in PowerShell:
+
+```powershell
+cd C:\dev\Woeschplan
+npm run pc:start
+```
+
+Das Skript stellt das iCloud-Backup wieder her, setzt die LAN-IP und startet den Dev-Stack.
 
 Warte vorher, bis iCloud Drive synchronisiert ist.

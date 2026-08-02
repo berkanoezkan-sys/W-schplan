@@ -21,7 +21,11 @@
     "dev:down": "./scripts/dev-down.sh",
     "dev:status": "./scripts/dev-status.sh",
     "export:migration": "./scripts/export-for-pc-migration.sh",
-    "pc:restore": "./scripts/pc-restore-from-backup.sh"
+    "pc:restore": "./scripts/pc-restore-from-backup.sh",
+    "pc:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pc-start.ps1",
+    "pc:start-no-docker": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pc-start-no-docker.ps1",
+    "pc:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-desktop-shortcut.ps1",
+    "pc:desktop-no-docker": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-desktop-shortcut-no-docker.ps1"
   },
   "engines": {
     "node": ">=20"
